@@ -1,0 +1,21 @@
+@startuml
+title 矿工工作流活动图
+
+start
+:启动矿工程序;
+:连接到区块链节点;
+:开始监听 `TaskAssigned` 事件;
+
+repeat
+  :等待新事件;
+  if (监听到分配给自己的任务?) then (yes)
+    :从事件日志中解析 `agentId` 和 `prompt`;
+    :根据 `agentId` 从链上获取 AgentConfig;
+    :调用 LLM 模型执行推理;
+    :打包计算结果;
+    :调用 `submitSolution()` 将结果提交上链;
+  endif
+repeat while (程序持续运行) is (true)
+
+stop
+@enduml

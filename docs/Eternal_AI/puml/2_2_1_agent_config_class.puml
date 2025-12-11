@@ -1,0 +1,22 @@
+@startuml
+skinparam class {
+    BackgroundColor PaleTurquoise
+    ArrowColor RoyalBlue
+    BorderColor RoyalBlue
+}
+hide empty members
+
+class AgentConfig {
+    + owner: address
+    + systemPrompt: string
+    + modelId: string
+    + tools: address[]
+    + usageFee: uint256
+}
+
+note right of AgentConfig
+  **AgentConfig 结构体**
+  定义了一个 AI Agent 的
+  所有核心配置参数。
+end note
+@enduml

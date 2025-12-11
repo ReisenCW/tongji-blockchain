@@ -1,0 +1,26 @@
+@startuml
+participant "用户应用" as UserApp
+participant "Agent-as-a-Service" as AaaS
+participant "AI Kernel" as AIKernel
+participant "链下矿工节点" as Miner
+
+UserApp -> AaaS: POST /infer
+AaaS -> AIKernel: 调用 infer()
+activate AIKernel
+AIKernel -> AIKernel: 分配矿工, 创建任务
+AIKernel -> Miner: 触发 TaskAssigned 事件
+deactivate AIKernel
+activate Miner
+Miner -> Miner: 监听到任务
+Miner -> AIKernel: 读取 AgentConfig
+activate AIKernel
+deactivate AIKernel
+Miner -> Miner: 执行 LLM 推理
+Miner -> AIKernel: 调用 submitSolution()
+activate AIKernel
+AIKernel -> AIKernel: 验证结果, 记录状态
+AIKernel -> AaaS: 通知任务完成
+deactivate AIKernel
+deactivate Miner
+AaaS -> UserApp: 返回推理结果
+@enduml
