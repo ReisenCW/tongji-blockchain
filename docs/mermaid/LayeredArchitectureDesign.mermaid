@@ -1,0 +1,46 @@
+graph TD
+    classDef layer fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef agent fill:#f3e5f5,stroke:#4a148c,stroke-width:1px
+    classDef process fill:#e8f5e8,stroke:#1b5e20,stroke-width:1px
+    
+    A[告警接收与问题识别层]:::layer
+    
+    subgraph B [多智能体并行分析层]
+        direction LR
+        B1[Agent 1]:::agent
+        B2[Agent 2]:::agent
+        B3[Agent 3]:::agent
+        B4[Agent 4]:::agent
+        B5[Agent 5]:::agent
+        B6[Agent 6]:::agent
+        B7[Agent 7]:::agent
+    end
+    
+    subgraph C [类区块链投票共识层]
+        direction LR
+        C1[权重计算]:::process
+        C2[投票聚合]:::process
+        C3[共识判定]:::process
+        
+        C1 --> C2 --> C3
+    end
+    
+    D[根因定位与解决方案生成层]:::layer
+    
+    A --> B1
+    A --> B2
+    A --> B3
+    A --> B4
+    A --> B5
+    A --> B6
+    A --> B7
+    
+    B1 --> C1
+    B2 --> C1
+    B3 --> C1
+    B4 --> C1
+    B5 --> C1
+    B6 --> C1
+    B7 --> C1
+    
+    C3 --> D
