@@ -1,0 +1,34 @@
+graph TD
+    subgraph Input
+        Alert[Alert Inception]
+    end
+
+    subgraph "Multi-Agent Collaboration Loop"
+        direction TB
+        PS[Process Scheduler]
+        
+        subgraph "Step Execution"
+            ReAct[ReAct Step: Thought/Action]
+        end
+        
+        subgraph "Consensus Layer (Agent Chain)"
+            Vote[Weighted Voting]
+            Agents[Specialized Agents: <br/>Data Detective, Dependency Explorer, <br/>Fault Mapper, Probability Oracle, <br/>Alert Receiver, Solution Engineer]
+        end
+        
+        PS --> ReAct
+        ReAct -- Proposed Step --> Vote
+        Agents -- Vote (For/Against) --> Vote
+        Vote -- Consensus Reached? --> Decision{Decision}
+        Decision -- Yes --> History[Update History]
+        Decision -- No --> ReAct
+        History -- Next Step --> PS
+    end
+
+    subgraph Output
+        History -- Finished --> SE[Solution Engineer]
+        SE --> RC[Root Cause]
+        SE --> Res[Resolution]
+    end
+
+    Alert --> PS

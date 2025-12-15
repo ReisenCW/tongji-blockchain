@@ -21,27 +21,27 @@ mABC 不仅仅是一个简单的分析工具，它构建了一个去中心化的
 ## 架构分析
 mABC 的架构设计紧密围绕“多智能体协作”与“区块链决策”两大核心理念，主要由以下关键组件构成：
 
-### 1. 多智能体系统 (Multi-Agent System)
+### 多智能体系统 (Multi-Agent System)
 系统内置了七个专门化的智能体（Specialized Agents）。每个智能体都基于大语言模型构建，并根据其特定的角色和专业知识（Expertise）进行划分。它们利用 LLM 内在的软件知识，从不同角度对故障进行分析，提供有价值的见解。这种多元化的分析视角有助于全面覆盖复杂的微服务故障场景。
 
-### 2. 智能体工作流 (Agent Workflow)
+### 智能体工作流 (Agent Workflow)
 为了规范智能体的行为并避免因微服务循环依赖导致的死循环，mABC 定义了标准化的智能体工作流。主要包含两种交互模式：
 *   **ReAct Answer**: 这是一个迭代过程，包含“思考 (Thought) - 行动 (Action) - 观察 (Observation)”的循环，直到智能体得出满意的结论。
 *   **Direct Answer**: 智能体根据提供的提示（Prompt）直接生成响应，适用于较为直接的任务。
 
-### 3. 区块链启发的投票机制 (Blockchain-inspired Voting)
+### 区块链启发的投票机制 (Blockchain-inspired Voting)
 这是 mABC 架构中最具创新性的部分，用于解决多智能体协作中的决策冲突和 LLM 的不稳定性。
 *   **去中心化决策**: 采用受区块链治理原则启发的投票过程，在“Agent Chain”上进行。
 *   **加权投票**: 投票过程并非简单的少数服从多数，而是综合考虑了每个智能体的**贡献指数 (Contribution Index)** 和 **专业指数 (Expertise Index)**。这确保了在特定领域更具权威性的智能体对最终决策有更大的影响力。
 *   **共识达成**: 通过这种机制，系统能够从多个智能体的分析结果中收敛出一个最可靠的根因结论和解决方案。
 
-### 4. 整体流水线 (Overall Pipeline)
+### 整体流水线 (Overall Pipeline)
 mABC 的整体架构形成了一个从警报触发到问题解决的完整闭环：
 1.  **警报接入 (Alert Inception)**: 系统接收来自微服务环境的异常警报。
 2.  **智能体协作 (Collaboration)**: 多个智能体按照预定工作流并行或串行地分析问题。
 3.  **投票共识 (Voting)**: 分析结果提交至 Agent Chain 进行加权投票。
 4.  **结果输出 (Output)**: 输出最终确定的根因（Root Cause）及建议的解决方案（Resolution）。
 
-### 5. 技术实现
-*   **开发语言**: Python
-*   **核心驱动**: 支持 OpenAI API，同时也提供了接口以适配其他替代的大语言模型（Alternative LLMs），具有良好的扩展性。
+### 架构图 (Architecture Diagram)
+
+![Architecture](./mermaid/architecture.mermaid)
