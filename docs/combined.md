@@ -438,7 +438,7 @@ mABC 项目的架构设计忠实还原了论文中提出的核心理念，主要
 
 ### 4.1.1. 架构图 (Architecture Diagram)
 
-![Architecture](./mermaid/architecture.mermaid)
+![Architecture](./images/architecture.png)
 
 ## 4.2. 核心技术与理论
 
