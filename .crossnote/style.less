@@ -1,0 +1,186 @@
+
+/* Please visit the URL below for more information: */
+/*   https://shd101wyy.github.io/markdown-preview-enhanced/#/customize-css */
+
+/* Please visit the URL below for more information: */
+/*   https://shd101wyy.github.io/markdown-preview-enhanced/#/customize-css */
+
+.markdown-preview.markdown-preview {
+  // 基础字体设置 - 优化中英文显示
+  font-family: "Optima", "Times New Roman", "Microsoft YaHei", "SimHei", sans-serif;
+  line-height: 1.6;
+  color: #000000;
+  font-size: 16px;
+
+  // 标题样式
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin-top: 1.2em;
+    margin-bottom: 0.6em;
+    font-weight: bold;
+    color: #2c3e50;
+  }
+
+  h1 {
+    font-size: 2.2em;
+    border-bottom: 2px solid #eaecef;
+    padding-bottom: 0.3em;
+  }
+
+  h2 {
+    font-size: 1.8em;
+    border-bottom: 1px solid #eaecef;
+    padding-bottom: 0.3em;
+    margin-top: 2em; // 二级标题前增加间距
+  }
+
+  // 段落
+  p {
+    margin-bottom: 1.2em;
+    text-align: justify; // 两端对齐
+  }
+
+  // 列表
+  ul,
+  ol {
+    padding-left: 2em;
+    margin-bottom: 1.2em;
+  }
+
+  // 表格样式优化
+  table {
+    max-width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em auto; // 上下间距并居中
+    display: table;
+
+    th,
+    td {
+      border: 1px solid #dfe2e5;
+      padding: 8px 12px;
+      word-wrap: break-word;
+      word-break: break-all;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    tr:nth-child(2n) {
+      background-color: #fcfcfc; // 隔行变色
+    }
+  }
+
+  // 代码块
+  pre {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    padding: 16px;
+    overflow: auto;
+    line-height: 1.45;
+    border: 1px solid #e1e4e8;
+
+    code {
+      background-color: transparent;
+      padding: 0;
+      border-radius: 0;
+      color: #24292e;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 0.9em;
+    }
+  }
+
+  // 行内代码
+  code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(27, 31, 35, 0.05);
+    border-radius: 3px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  }
+
+  // 图片居中与美化
+  img {
+    display: block;
+    margin: 1.5em auto;
+    max-width: 100%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+  }
+
+  // 引用块
+  blockquote {
+    padding: 0 1em;
+    color: #6a737d;
+    border-left: 0.25em solid #dfe2e5;
+    margin-left: 0;
+    background-color: #fafafa;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  // 链接
+  a {
+    color: #0366d6;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  // 打印/PDF 导出设置
+  @media print {
+    @page {
+      size: A4;
+      margin: 20mm; // 标准页边距
+    }
+
+    body {
+      font-size: 12pt; // 打印字体稍大
+      -webkit-print-color-adjust: exact; // 打印背景色
+    }
+
+    h1,
+    h2,
+    h3 {
+      page-break-after: avoid; // 标题后不换页
+      page-break-inside: avoid;
+    }
+
+    table,
+    pre,
+    img,
+    blockquote {
+      page-break-inside: avoid; // 元素内部尽量不换页
+    }
+
+    // 打印时隐藏滚动条
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  // 特殊类：价格/A4 (保留原有逻辑)
+  &.price {
+    @page {
+      size: A4;
+    }
+  }
+
+  // 摘要样式优化
+  .abstract {
+    padding: 20px;
+    margin: 20px 40px;
+    color: #495057;
+    font-size: 0.95em;
+    line-height: 1.8;
+  }
+}

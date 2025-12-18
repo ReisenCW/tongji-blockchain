@@ -6,9 +6,11 @@
     <h3>摘要</h3>
 </div>
 
+<div class="abstract">
 本调研报告以“mABC：面向微服务架构根因分析的多智能体区块链启发式协作框架”为核心研究对象，深入探讨了区块链核心理念与人工智能体（AI Agent）技术在复杂系统运维领域的创新融合路径。报告系统分析了微服务架构下根因分析（RCA）面临的严峻挑战，以及现有方法（包括基于大语言模型的方案）在可靠性、可解释性与协作性方面的固有局限。研究发现，mABC 框架通过借鉴区块链的去中心化共识与可追溯性思想，构建了一个由多个专业化 AI Agent 组成的协作系统，有效解决了单一智能体的“幻觉”问题与复杂故障场景下的决策可信度难题。其核心技术贡献在于创造性地设计了 “Agent 工作流” 与 “区块链启发型投票”机制，在保障分析过程高效有序的同时，实现了多智能体间可信、透明决策的形成。本报告通过理论分析、论文剖析与项目实践解读，论证了这种跨领域思想迁移不仅为 AIOps 提供了先进解决方案，更对理解区块链思想的普适性、探索智能体在可信环境下的协作模式具有重要启示。分析结论指出，mABC 代表了从“代码即法律”的静态自动化迈向“协作即共识”的动态自主化的重要一步，为区块链与 AI 的深度融合提供了关键性的范式参考。
 
 **关键词**：区块链；人工智能体；大语言模型；根因分析；微服务架构；多智能体协作；共识机制
+</div>
 
 <div style="page-break-after: always;"></div>
 <div align="center">
@@ -551,6 +553,6 @@ Agent Workflow 的引入为智能体行为提供了"标准化操作程序（SOP�
 # 7. 参考文献
 
 [1] Zhang W , Guo H , Yang J ,et al.mABC: multi-Agent Blockchain-Inspired Collaboration for root cause analysis in micro-services architecture[J]. 2024.DOI:10.18653/v1/2024.findings-emnlp.232.
-[2] [GitHub 项目链接](https://github.com/zwpride/mABC)
+[2] [项目 mABC](https://github.com/zwpride/mABC)
 
 
