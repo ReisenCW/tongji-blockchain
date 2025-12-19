@@ -43,7 +43,7 @@ Format: Root Cause Endpoint: XXX, Root Cause Reason: XXX
                 agents = [DataDetective(), DependencyExplorer(), ProbabilityOracle(), FaultMapper(), AlertReceiver(), ProcessScheduler(), SolutionEngineer()]
                 answer1 = run.run(agent=agent, question=question, agent_tool_env=vars(process_scheduler_tools), eval_run=eval_run, agents=agents)
                 print(f"A: {answer1}")
-                question2 = "Base on the analysis, what is the root cause endpoint?\n\n Format: Root Cause Endpoint: XXX, Root Cause Reason: XXX\n\n" + answer1
+                question2 = "Based on the analysis, please provide a detailed repair solution for the identified root cause. Do NOT repeat the analysis, focus on the fix.\n\nAnalysis:\n" + answer1
                 print(f"Q: {question2}")
                 
                 agent = SolutionEngineer()

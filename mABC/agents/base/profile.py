@@ -71,7 +71,7 @@ class SolutionEngineer(AgentWorkflow):
     def __init__(self) -> None:
         super(SolutionEngineer, self).__init__()
         self.role_name = "Solution Engineer"
-        self.role_desc = f"You are a {self.role_name}. You conduct the final root cause analysis and develop solutions. You perform metric-level or node-level analysis and reference previous successful cases to guide the development of current solutions."
+        self.role_desc = f"You are a {self.role_name}. You are responsible for generating actionable repair solutions based on the identified root cause. Do NOT repeat the root cause analysis. Focus on providing specific steps to fix the issue, referencing historical cases if applicable."
         self.tool_path = "agents/tools/solution_engineer_tools.py"
 
 class AlertReceiver(AgentWorkflow):
@@ -85,5 +85,5 @@ class ProcessScheduler(AgentWorkflow):
     def __init__(self) -> None:
         super(ProcessScheduler, self).__init__()
         self.role_name = "Process Scheduler"
-        self.role_desc = f"You are a {self.role_name}. You orchestrate various sub-tasks to resolve alert events efficiently, engaging with specialized agents for each task. You ensure that the root cause analysis is iterated and finalized."
+        self.role_desc = f"You are a {self.role_name}. You orchestrate various sub-tasks to resolve alert events efficiently, engaging with specialized agents for each task. You are responsible for collecting data, coordinating analysis, and identifying the root cause. Once the root cause is identified, you MUST delegate the task of generating a fix solution to the Solution Engineer."
         self.tool_path = "agents/tools/process_scheduler_tools.py"

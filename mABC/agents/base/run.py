@@ -165,11 +165,47 @@ class ThreeHotCotRun(BaseRun):
 # ReAct-TOT多轮运行类
 class ReActTotRun(BaseRun):
     def __init__(self):
-        pass
+        self.max_history_length = 5000  # 设置历史记录最大长度
+
+    def check_and_summarize(self, history, question):
+        """
+        Check if history is too long and summarize it if necessary.
+        Always keep the 'Question' (Task Goal/Key Facts) at the beginning.
+        """
+        if len(history) < self.max_history_length:
+            return history
+        
+        prefix = f"Question: {question}"
+        # 如果历史记录以问题开头（通常都是），则保留问题，压缩中间部分
+        if history.startswith(prefix):
+            content_to_summarize = history[len(prefix):]
+            
+            # 保留最近的 1500 个字符，防止丢失最近的上下文
+            keep_length = 1500
+            if len(content_to_summarize) > keep_length:
+                context_to_keep = content_to_summarize[-keep_length:]
+                to_summarize = content_to_summarize[:-keep_length]
+                
+                summary_prompt = [
+                    {"role": "system", "content": "You are a helpful assistant. Summarize the following history of thoughts, actions and observations. Keep important facts, the sequence of events, and the current state of investigation. Be concise."},
+                    {"role": "user", "content": to_summarize}
+                ]
+                print("--- Summarizing History ---")
+                summary = self.qa(summary_prompt)
+                print("--- Summary Complete ---")
+                
+                new_history = f"{prefix}\n\n[Summary of previous steps]: {summary}\n\n[Recent actions]:\n{context_to_keep}"
+                return new_history
+        
+        return history
 
     def run(self, agent: AgentWorkflow, question: str, agent_tool_env, eval_run, agents, history="", index=0):
         # 获取历史记录, 如果没有则初始化
         history = f"Question: {question}" if history == "" else history
+        
+        # 检查并总结历史记录，防止 Lost in the Middle
+        history = self.check_and_summarize(history, question)
+
         # 进行多轮采样下一步
         step_status_record_list = self.sample_multi_next_step(agent, question, agent_tool_env, eval_run, agents, history)
         # 选择最佳步骤记录

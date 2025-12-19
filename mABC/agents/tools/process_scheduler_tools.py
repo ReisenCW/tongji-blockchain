@@ -55,13 +55,13 @@ def ask_for_dependency_explorer(question: str) -> str:
 
 def ask_for_solution_engineer(question: str) -> str:
     """
-    The Solution Engineer Agent is responsible for providing solutions by analyzing the root causes of issues within the API ecosystem. They use functions like conduct_root_cause_analysis and develop_solution to propose and track the status of solutions, as well as to understand their impact on the system.
+    The Solution Engineer Agent is responsible for generating actionable repair solutions based on the identified root cause. It does NOT repeat the root cause analysis but focuses on how to fix the issue, referencing historical cases if applicable.
 
     Parameters:
-    - question (str): The question for the Solution Engineer Agent should include detailed information about the current situation and the problem at hand.
+    - question (str): The question for the Solution Engineer Agent should include the identified root cause and detailed information about the problem.
 
     Returns:
-    - str: The response from the Solution Engineer Agent.
+    - str: The response from the Solution Engineer Agent containing the repair solution.
     """
     solution_engineer = SolutionEngineer()
     run = ReActTotRun()

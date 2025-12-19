@@ -2,18 +2,18 @@ from settings import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, OPENAI_MAX_RETRIES, 
 from openai import OpenAI
 import time
 
+client = OpenAI(
+    api_key=DASHSCOPE_API_KEY,
+    base_url=DASHSCOPE_BASE_URL,
+)
+
 def llm_chat(shared_messages, stop_words):
-    for i in range(OPENAI_MAX_RETRIES):
+    for _ in range(OPENAI_MAX_RETRIES):
         try:
-            client = OpenAI(
-                api_key=DASHSCOPE_API_KEY,
-                base_url=DASHSCOPE_BASE_URL,
-            )
             completion = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=shared_messages,
                 stop=stop_words,
-                # max_tokens=4096,
             )
             print(completion)
             return completion.choices[0].message.content
