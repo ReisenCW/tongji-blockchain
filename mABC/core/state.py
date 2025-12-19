@@ -135,24 +135,6 @@ class WorldState:
         account = self.get_account(address)
         return account.balance if account else 0
     
-    def transfer_balance(self, from_address: str, to_address: str, amount: int) -> bool:
-        """转账"""
-        from_account = self.get_account(from_address)
-        to_account = self.get_account(to_address)
-        
-        if not from_account or from_account.balance < amount:
-            return False
-        
-        if not to_account:
-            to_account = self.create_account(to_address)
-        
-        from_account.balance -= amount
-        to_account.balance += amount
-        
-        self.update_account(from_account)
-        self.update_account(to_account)
-        return True
-    
     def increment_nonce(self, address: str) -> int:
         """增加账户nonce"""
         account = self.get_account(address)
@@ -162,39 +144,6 @@ class WorldState:
         account.nonce += 1
         self.update_account(account)
         return account.nonce
-    
-    def add_root_cause_proposal(self, proposer: str, proposal_id: str, proposal_data: Dict[str, Any]):
-        """添加根因提案"""
-        account = self.get_account(proposer)
-        if not account:
-            account = self.create_account(proposer)
-        
-        account.root_cause_proposals[proposal_id] = proposal_data
-        self.update_account(account)
-    
-    def add_vote(self, voter: str, proposal_id: str, vote_data: Dict[str, Any]):
-        """添加投票"""
-        account = self.get_account(voter)
-        if not account:
-            account = self.create_account(voter)
-        
-        account.votes[proposal_id] = vote_data
-        self.update_account(account)
-    
-    def get_all_proposals(self) -> Dict[str, Dict[str, Any]]:
-        """获取所有根因提案"""
-        all_proposals = {}
-        for account in self.state.values():
-            all_proposals.update(account.root_cause_proposals)
-        return all_proposals
-    
-    def get_proposal_votes(self, proposal_id: str) -> Dict[str, Dict[str, Any]]:
-        """获取特定提案的所有投票"""
-        proposal_votes = {}
-        for account in self.state.values():
-            if proposal_id in account.votes:
-                proposal_votes[account.address] = account.votes[proposal_id]
-        return proposal_votes
 
 
 class StateProcessor:
@@ -242,7 +191,12 @@ class StateProcessor:
             }
             
             # 将提案添加到提议者账户中
-            self.world_state.add_root_cause_proposal(tx.sender, proposal_id, proposal_data)
+            account = self.world_state.get_account(tx.sender)
+            if not account:
+                account = self.world_state.create_account(tx.sender)
+            
+            account.root_cause_proposals[proposal_id] = proposal_data
+            self.world_state.update_account(account)
             return True
         except Exception as e:
             print(f"Failed to apply propose root cause transaction: {e}")
@@ -260,22 +214,40 @@ class StateProcessor:
                 raise ValueError(f"Invalid vote option. Must be one of {valid_options}")
             
             # 查找提案
-            all_proposals = self.world_state.get_all_proposals()
-            if proposal_id not in all_proposals:
+            # 注意：这里需要遍历所有账户来查找提案
+            proposal_account = None
+            proposal_data = None
+            for account in self.world_state.state.values():
+                if proposal_id in account.root_cause_proposals:
+                    proposal_account = account
+                    proposal_data = account.root_cause_proposals[proposal_id]
+                    break
+            
+            if not proposal_data:
                 raise ValueError(f"Proposal {proposal_id} not found")
             
             # 添加投票到投票者账户
+            voter_account = self.world_state.get_account(tx.sender)
+            if not voter_account:
+                voter_account = self.world_state.create_account(tx.sender)
+            
             vote_data = {
                 "proposal_id": proposal_id,
                 "vote_option": vote_option,
                 "timestamp": tx.timestamp
             }
             
-            self.world_state.add_vote(tx.sender, proposal_id, vote_data)
+            voter_account.votes[proposal_id] = vote_data
+            self.world_state.update_account(voter_account)
             
             # 更新提案的投票计数
-            proposal = all_proposals[proposal_id]
-            proposal["votes"][vote_option] += 1
+            proposal_data["votes"][vote_option] += 1
+            
+            # 更新提案账户
+            if proposal_account:
+                proposal_account.root_cause_proposals[proposal_id] = proposal_data
+                self.world_state.update_account(proposal_account)
+            
             return True
         except Exception as e:
             print(f"Failed to apply vote transaction: {e}")
@@ -288,8 +260,21 @@ class StateProcessor:
             amount = tx.data["amount"]
             
             # 执行转账
-            success = self.world_state.transfer_balance(tx.sender, to_address, amount)
-            return success
+            from_account = self.world_state.get_account(tx.sender)
+            to_account = self.world_state.get_account(to_address)
+            
+            if not from_account or from_account.balance < amount:
+                return False
+            
+            if not to_account:
+                to_account = self.world_state.create_account(to_address)
+            
+            from_account.balance -= amount
+            to_account.balance += amount
+            
+            self.world_state.update_account(from_account)
+            self.world_state.update_account(to_account)
+            return True
         except Exception as e:
             print(f"Failed to apply transfer transaction: {e}")
             return False

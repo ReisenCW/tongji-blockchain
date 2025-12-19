@@ -1,7 +1,6 @@
 """
 虚拟机执行层
 实现一个简易的状态机执行引擎，用于处理交易并更新状态
-增强Gas机制实现
 """
 
 import hashlib
@@ -9,7 +8,7 @@ import json
 import time
 from typing import Dict, Any, Optional, List
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
-from ecdsa.util import sigencode_der, sigdecode_der
+from ecdsa.util import sigdecode_der
 from pydantic import BaseModel, Field
 from .state import world_state, state_processor, Account
 
@@ -31,34 +30,6 @@ class Transaction(BaseModel):
     data: Dict[str, Any]
     signature: Optional[str] = None
     timestamp: int = Field(default_factory=lambda: int(time.time()))
-
-
-class TransactionReceipt(BaseModel):
-    """交易收据"""
-    tx_hash: str
-    success: bool
-    gas_used: int
-    gas_fee: int
-    error_message: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
-
-
-class GasCalculator:
-    """Gas计算器"""
-    
-    # 基础Gas消耗
-    BASE_GAS = 21000
-    # 不同操作的Gas消耗
-    GAS_COSTS = {
-        TransactionType.TRANSFER: 21000,
-        TransactionType.PROPOSE_ROOT_CAUSE: 30000,
-        TransactionType.VOTE: 25000
-    }
-    
-    @classmethod
-    def calculate_gas_cost(cls, tx_type: str) -> int:
-        """计算交易的Gas消耗"""
-        return cls.GAS_COSTS.get(tx_type, cls.BASE_GAS)
 
 
 class Block(BaseModel):
@@ -96,7 +67,7 @@ class Blockchain:
     
     def _calculate_block_hash(self, block: Block) -> str:
         """计算区块哈希"""
-        block_dict = block.dict(exclude={'hash'})
+        block_dict = block.model_dump(exclude={'hash'})  # 使用model_dump替代dict
         block_json = json.dumps(block_dict, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(block_json.encode()).hexdigest()
     
@@ -198,13 +169,13 @@ class Blockchain:
             return False
         
         try:
-            # 获取发送者的公钥（这里简化处理，实际应从地址推导公钥）
-            # 在实际实现中，应该从tx.sender地址推导出公钥
-            # 这里为了简化，我们假设tx.sender就是公钥
+            # 在实际区块链系统中，公钥管理由数据层（成员1）负责
+            # 执行层只需要调用验证接口即可
+            # 这里假设tx.sender就是公钥（简化处理，实际应由成员1提供公钥查找机制）
             vk = VerifyingKey.from_string(bytes.fromhex(tx.sender), curve=SECP256k1)
             
-            # 计算交易哈希
-            tx_dict = tx.dict(exclude={'signature'})
+            # 计算交易哈希（不包含签名）
+            tx_dict = tx.model_dump(exclude={'signature'})
             tx_json = json.dumps(tx_dict, sort_keys=True, separators=(',', ':'))
             tx_hash = hashlib.sha256(tx_json.encode()).hexdigest()
             
