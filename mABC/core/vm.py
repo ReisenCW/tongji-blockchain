@@ -1,5 +1,6 @@
 """
 虚拟机执行层
+实现一个简易的状态机执行引擎，用于处理交易并更新状态
 """
 
 import hashlib
@@ -22,7 +23,7 @@ class TransactionType:
 class Transaction(BaseModel):
     """交易模型"""
     tx_type: str
-    sender: str
+    sender: str  # 发送者地址
     nonce: int
     gas_price: int
     gas_limit: int
@@ -74,6 +75,7 @@ class Blockchain:
     def add_transaction(self, tx: Transaction) -> bool:
         """
         添加交易到交易池
+        根据接口文档要求实现
         """
         # 1. 验证交易签名
         if not self._verify_transaction_signature(tx):
@@ -106,6 +108,7 @@ class Blockchain:
     def mine_block(self) -> Optional[Block]:
         """
         挖矿/出块
+        根据接口文档要求实现
         """
         if not self.pending_transactions:
             print("No pending transactions to mine")
@@ -169,9 +172,25 @@ class Blockchain:
             return False
 
         try:
-            # 这里假设tx.sender就是公钥（等待成员1提供公钥查找机制）
+            # 尝试导入成员1提供的公钥查找接口
+            # 此处假设成员1提供了一个名为member1_module的模块，并且该模块中包含一个名为PublicKeyRegistry的类
+            try:
+                from member1_module import PublicKeyRegistry
+                public_key_hex = PublicKeyRegistry.get_public_key(tx.sender)
+                
+                # 如果公钥查找失败，则签名验证失败
+                if not public_key_hex:
+                    print(f"Public key not found for address: {tx.sender}")
+                    return False
+            except ImportError:
+                # 如果无法导入成员1的模块，则回退到开发模式
+                # 在生产环境中，这应该被移除或者引发一个错误
+                print("Warning: Using development mode - falling back to sender as public key")
+                public_key_hex = tx.sender
+            
+            # 使用公钥进行签名验证
             vk = VerifyingKey.from_string(
-                bytes.fromhex(tx.sender), curve=SECP256k1)
+                bytes.fromhex(public_key_hex), curve=SECP256k1)
 
             # 计算交易哈希（不包含签名）
             tx_dict = tx.model_dump(exclude={'signature'})
