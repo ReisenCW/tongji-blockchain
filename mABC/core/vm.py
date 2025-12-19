@@ -169,9 +169,7 @@ class Blockchain:
             return False
 
         try:
-            # 公钥管理由数据层（成员1）负责
-            # 执行层只需要调用验证接口即可
-            # 这里假设tx.sender就是公钥（简化处理，实际应由成员1提供公钥查找机制）
+            # 这里假设tx.sender就是公钥（等待成员1提供公钥查找机制）
             vk = VerifyingKey.from_string(
                 bytes.fromhex(tx.sender), curve=SECP256k1)
 
