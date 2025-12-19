@@ -41,3 +41,5 @@ urllib3_secure_extra==0.1.0
 uvloop==0.22.1
 xmlrpclib==1.0.1
 zstandard==0.25.0
+pydantic>=1.8.0
+ecdsa>=0.17.0
