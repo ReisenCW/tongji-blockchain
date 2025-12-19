@@ -12,6 +12,16 @@
   color: #000000;
   font-size: 16px;
 
+  /* 强制代码块和缩进文本自动换行 */
+  pre,
+  code {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100%;
+    /* 限制最大宽度 */
+  }
+
   // 标题样式
   h1,
   h2,
