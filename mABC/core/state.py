@@ -1,7 +1,6 @@
 """
 状态管理模块
-负责维护全局状态 (World State)，确保数据的一致性
-实现持久化存储功能
+负责维护全局状态 (World State)，确保数据的一致性，实现持久化存储功能
 """
 
 import hashlib
@@ -155,7 +154,6 @@ class StateProcessor:
     def apply_transaction(self, tx: 'Transaction') -> bool:
         """
         应用交易到世界状态
-        根据接口文档要求实现
         """
         try:
             # 根据交易类型执行不同的操作
@@ -214,7 +212,7 @@ class StateProcessor:
                 raise ValueError(f"Invalid vote option. Must be one of {valid_options}")
             
             # 查找提案
-            # 注意：这里需要遍历所有账户来查找提案
+            # 遍历所有账户来查找提案
             proposal_account = None
             proposal_data = None
             for account in self.world_state.state.values():
