@@ -61,7 +61,6 @@ class TokenContract:
     def slash(self, tx_data: Dict[str, Any], sender: str) -> bool:
         """
         执行惩罚 (扣除质押)
-        通常由治理合约或管理员调用，这里假设通过交易调用
         :param tx_data: 包含 'target' 和 'amount'
         :param sender: 发送者地址 (需要权限检查，这里简化)
         """
