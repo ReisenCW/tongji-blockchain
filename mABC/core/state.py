@@ -10,7 +10,7 @@ import os
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 
-from core.vm import Transaction
+from core.types import Transaction
 
 
 class Account(BaseModel):
@@ -185,9 +185,11 @@ class StateProcessor:
     def _apply_propose_root_cause(self, tx: 'Transaction') -> bool:
         """应用根因提案交易"""
         try:
-            proposal_id = hashlib.sha256(
-                f"{tx.sender}{tx.timestamp}{tx.data['proposal_content']}".encode()
-            ).hexdigest()
+            # 使用成员1提供的哈希函数
+            from core.types import calculate_hash
+            proposal_id = calculate_hash(
+                f"{tx.sender}{tx.timestamp}{tx.data['proposal_content']}"
+            )
             
             proposal_data = {
                 "proposer": tx.sender,

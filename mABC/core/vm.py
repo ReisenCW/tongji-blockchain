@@ -11,6 +11,7 @@ from ecdsa import SigningKey, VerifyingKey, SECP256k1
 from ecdsa.util import sigdecode_der
 from pydantic import BaseModel, Field
 from .state import world_state, state_processor, Account
+from .types import Transaction, Block, BlockHeader, get_merkle_root
 
 
 class TransactionType:
@@ -20,28 +21,6 @@ class TransactionType:
     TRANSFER = "transfer"
     STAKE = "stake"
     SLASH = "slash"
-
-
-class Transaction(BaseModel):
-    """交易模型"""
-    tx_type: str
-    sender: str  # 发送者地址
-    nonce: int
-    gas_price: int
-    gas_limit: int
-    data: Dict[str, Any]
-    signature: Optional[str] = None
-    timestamp: int = Field(default_factory=lambda: int(time.time()))
-
-
-class Block(BaseModel):
-    """区块模型"""
-    index: int
-    timestamp: int
-    transactions: List[Transaction]
-    previous_hash: str
-    nonce: int = 0
-    hash: Optional[str] = None
 
 
 class Blockchain:
@@ -57,11 +36,16 @@ class Blockchain:
 
     def _create_genesis_block(self):
         """创建创世区块"""
-        genesis_block = Block(
+        # 使用成员1提供的数据结构创建创世区块
+        genesis_header = BlockHeader(
             index=0,
             timestamp=int(time.time()),
-            transactions=[],
-            previous_hash="0" * 64
+            previous_hash="0" * 64,
+            merkle_root=get_merkle_root([])
+        )
+        genesis_block = Block(
+            header=genesis_header,
+            transactions=[]
         )
         genesis_block.hash = self._calculate_block_hash(genesis_block)
         self.chain.append(genesis_block)
@@ -69,10 +53,12 @@ class Blockchain:
 
     def _calculate_block_hash(self, block: Block) -> str:
         """计算区块哈希"""
-        block_dict = block.model_dump(exclude={'hash'})  # 使用model_dump替代dict
+        # 使用成员1提供的方法计算区块哈希
+        from .types import calculate_hash
+        block_dict = block.model_dump(exclude={'hash'})
         block_json = json.dumps(
             block_dict, sort_keys=True, separators=(',', ':'))
-        return hashlib.sha256(block_json.encode()).hexdigest()
+        return calculate_hash(block_json)
 
     def add_transaction(self, tx: Transaction) -> bool:
         """
@@ -120,13 +106,19 @@ class Blockchain:
         transactions_to_mine = self.pending_transactions.copy()
         self.pending_transactions.clear()
 
-        # 创建新区块
+        # 创建新区块头
         previous_block = self.chain[-1]
-        new_block = Block(
-            index=previous_block.index + 1,
+        new_header = BlockHeader(
+            index=previous_block.header.index + 1,
             timestamp=int(time.time()),
-            transactions=transactions_to_mine,
-            previous_hash=previous_block.hash or ""
+            previous_hash=previous_block.hash or "",
+            merkle_root=get_merkle_root(transactions_to_mine)
+        )
+        
+        # 创建新区块
+        new_block = Block(
+            header=new_header,
+            transactions=transactions_to_mine
         )
 
         # 调用StateProcessor执行交易
@@ -157,6 +149,9 @@ class Blockchain:
 
         # 更新区块的交易列表为成功执行的交易
         new_block.transactions = successful_transactions
+        
+        # 更新Merkle根
+        new_block.header.merkle_root = get_merkle_root(successful_transactions)
 
         # 计算区块哈希
         new_block.hash = self._calculate_block_hash(new_block)
@@ -164,7 +159,7 @@ class Blockchain:
         # 将合法区块追加到链上
         self.chain.append(new_block)
         print(
-            f"New block mined: #{new_block.index} with {len(successful_transactions)} transactions")
+            f"New block mined: #{new_block.header.index} with {len(successful_transactions)} transactions")
 
         return new_block
 
@@ -174,21 +169,14 @@ class Blockchain:
             return False
 
         try:
-            # 尝试导入成员1提供的公钥查找接口
-            # 此处假设成员1提供了一个名为member1_module的模块，并且该模块中包含一个名为PublicKeyRegistry的类
-            try:
-                from member1_module import PublicKeyRegistry
-                public_key_hex = PublicKeyRegistry.get_public_key(tx.sender)
-                
-                # 如果公钥查找失败，则签名验证失败
-                if not public_key_hex:
-                    print(f"Public key not found for address: {tx.sender}")
-                    return False
-            except ImportError:
-                # 如果无法导入成员1的模块，则回退到开发模式
-                # 在生产环境中，这应该被移除或者引发一个错误
-                print("Warning: Using development mode - falling back to sender as public key")
-                public_key_hex = tx.sender
+            # 使用成员1提供的公钥查找接口
+            from .blockchain import PublicKeyRegistry
+            public_key_hex = PublicKeyRegistry.get_public_key(tx.sender)
+            
+            # 如果公钥查找失败，则签名验证失败
+            if not public_key_hex:
+                print(f"Public key not found for address: {tx.sender}")
+                return False
             
             # 使用公钥进行签名验证
             vk = VerifyingKey.from_string(
@@ -198,14 +186,22 @@ class Blockchain:
             tx_dict = tx.model_dump(exclude={'signature'})
             tx_json = json.dumps(tx_dict, sort_keys=True,
                                  separators=(',', ':'))
-            tx_hash = hashlib.sha256(tx_json.encode()).hexdigest()
+            # 使用成员1提供的哈希函数
+            from .types import calculate_hash
+            tx_hash = calculate_hash(tx_json)
 
-            # 验证签名
-            return vk.verify(
-                bytes.fromhex(tx.signature),
-                bytes.fromhex(tx_hash),
-                sigdecode=sigdecode_der
-            )
+            # 生产环境使用ECDSA签名验证
+            try:
+                # 验证签名（不指定hashfunc，让ecdsa库自己处理哈希）
+                result = vk.verify(
+                    bytes.fromhex(tx.signature),
+                    bytes.fromhex(tx_hash),
+                    sigdecode=sigdecode_der
+                )
+                return result
+            except Exception as verify_error:
+                print(f"Signature verification failed: {verify_error}")
+                return False
         except Exception as e:
             print(f"Signature verification failed: {e}")
             return False
