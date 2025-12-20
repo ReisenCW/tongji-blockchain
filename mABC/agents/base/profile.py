@@ -1,3 +1,8 @@
+from ecdsa import SigningKey, SECP256k1
+from core.blockchain import PublicKeyRegistry
+from core.types import generate_address
+
+
 class AgentWorkflow():
     def __init__(self) -> None:
         self.role_name = "Agent"
@@ -9,6 +14,8 @@ The answer MUST contain a sequence of bullet points that explain how you arrived
 
 Answer the following questions as best you can. So, let's get started!
 """
+        # DAO功能：生成钱包
+        self._initialize_wallet()
         self.tool_prompt = """
 You have access to the following tools: {tools}
 Conversations will go on in following format:
@@ -38,6 +45,26 @@ Face to {poll_problem}, {poll_role} expert’s answer is as follow: {poll_conten
 Now you need to answer which options you vote to? Please and Must answer in the format and DONOT give any reason:
 Option: For/Against/Abstain
 """
+    
+    def _initialize_wallet(self) -> None:
+        """初始化Agent的区块链钱包"""
+        # 生成私钥和公钥
+        self.private_key = SigningKey.generate(curve=SECP256k1)
+        self.public_key = self.private_key.get_verifying_key()
+        
+        # 生成地址
+        self.wallet_address = generate_address(self.public_key.to_string())
+        
+        # 注册公钥（供区块链验证签名使用）
+        PublicKeyRegistry.register_public_key(
+            self.wallet_address, 
+            self.public_key.to_string().hex()
+        )
+        
+        # 初始化投票权重（用于共识计算）
+        self.weight = 1.0
+        self.contribution_index = 1.0
+        self.expertise_index = 1.0
 
 class DataDetective(AgentWorkflow):
     def __init__(self) -> None:

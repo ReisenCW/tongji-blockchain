@@ -5,7 +5,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.base.profile import DataDetective, DependencyExplorer, ProbabilityOracle, FaultMapper, AlertReceiver, ProcessScheduler, SolutionEngineer
 from agents.base.run import ReActTotRun, ThreeHotCotRun, BaseRun
+from agents.base.dao_run import DAOExecutor
 from agents.tools import process_scheduler_tools, alert_receiver_tools, solution_engineer_tools
+from core.vm import Blockchain
+from core.state import world_state
 import json
 
 def extract_final_answer(text):
@@ -16,6 +19,35 @@ def extract_final_answer(text):
 if __name__ == "__main__":
     i = 0
     results = []
+    
+    # 初始化区块链
+    print("正在初始化区块链...")
+    blockchain = Blockchain()
+    
+    # 初始化所有Agent的账户
+    print("正在初始化Agent账户...")
+    all_agents = [
+        DataDetective(), 
+        DependencyExplorer(), 
+        ProbabilityOracle(), 
+        FaultMapper(), 
+        AlertReceiver(), 
+        ProcessScheduler(), 
+        SolutionEngineer()
+    ]
+    
+    for agent in all_agents:
+        account = world_state.get_account(agent.wallet_address)
+        if account is None:
+            account = world_state.create_account(agent.wallet_address)
+        account.balance = 10000  # 每个Agent初始10000 Token
+        account.reputation = 100
+        world_state.update_account(account)
+        print(f"✅ {agent.role_name}: 余额={account.balance} Token")
+    
+    # 创建DAO执行器（使用区块链投票）
+    dao_executor = DAOExecutor(blockchain, alpha=0.5, beta=0.5)
+    print("✅ DAO执行器初始化完成\n")
     
     log_file = open("output.log", "w", encoding="utf-8")
     original_stdout = sys.stdout
@@ -39,16 +71,17 @@ Format: Root Cause Endpoint: XXX, Root Cause Reason: XXX
                 print(f"Q: {question}")
                 agent = ProcessScheduler()
                 run = ReActTotRun()
-                eval_run = ThreeHotCotRun(0, 0)
-                agents = [DataDetective(), DependencyExplorer(), ProbabilityOracle(), FaultMapper(), AlertReceiver(), ProcessScheduler(), SolutionEngineer()]
+                # 使用DAO执行器进行链上投票
+                eval_run = dao_executor
+                agents = all_agents  # 使用已初始化的agents
                 answer1 = run.run(agent=agent, question=question, agent_tool_env=vars(process_scheduler_tools), eval_run=eval_run, agents=agents)
                 print(f"A: {answer1}")
                 question2 = "Based on the analysis, please provide a detailed repair solution for the identified root cause. Do NOT repeat the analysis, focus on the fix.\n\nAnalysis:\n" + answer1
                 print(f"Q: {question2}")
                 
                 agent = SolutionEngineer()
-                agents = [SolutionEngineer()]
-                answer2 = ReActTotRun().run(agent=agent, question=question2, agent_tool_env=vars(solution_engineer_tools), eval_run=ThreeHotCotRun(), agents=agents)
+                agents = [se for se in all_agents if isinstance(se, SolutionEngineer)]  # 使用已初始化的SolutionEngineer
+                answer2 = ReActTotRun().run(agent=agent, question=question2, agent_tool_env=vars(solution_engineer_tools), eval_run=dao_executor, agents=agents)
                 print(f"A: {answer2}")
                 print("@" * 30, "Solution Engineer", "@" * 30)
                 print("\n" * 20)
