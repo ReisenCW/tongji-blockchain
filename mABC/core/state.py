@@ -9,7 +9,7 @@ import sqlite3
 import os
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
-from types import Account
+from .types import Account
 from core.types import Transaction
 
 class WorldState:

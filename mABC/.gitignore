@@ -18,3 +18,4 @@ data/span_info
 resource
 output.log
 answer.json
+state.db

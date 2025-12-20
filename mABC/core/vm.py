@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
 from ecdsa.util import sigdecode_der
 from pydantic import BaseModel, Field
-from .state import world_state, state_processor, Account
+from .state import world_state, state_processor
 from .types import Transaction, Block, BlockHeader, get_merkle_root
 
 
