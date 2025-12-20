@@ -9,20 +9,8 @@ import sqlite3
 import os
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
-
+from types import Account
 from core.types import Transaction
-
-
-class Account(BaseModel):
-    """账户模型"""
-    address: str
-    balance: int = 0
-    stake: int = 0          # 质押,  质押量越高，投票对提案结果的影响力越大
-    reputation: int = 100   # 信誉分
-    nonce: int = 0
-    root_cause_proposals: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    votes: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-
 
 class WorldState:
     """世界状态管理器"""

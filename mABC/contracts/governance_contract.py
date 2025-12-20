@@ -71,28 +71,36 @@ class GovernanceContract:
     def _check_consensus(self, proposal_id: str, proposal_data: Dict[str, Any]):
         """
         检查是否达成共识
-        简单逻辑：如果赞成票权重超过总质押量的 50% (或者简单设定一个阈值)，则通过
+        逻辑：如果赞成票权重超过全网总权重的 50%，则通过；如果反对票超过 50%，则否决。
         """
         from contracts.ops_contract import ops_sop_contract
         
         votes_for = proposal_data["votes"]["for"]
         votes_against = proposal_data["votes"]["against"]
         
-        # 这里简化处理：假设总权重阈值为 10 (实际应计算全网总质押量)
-        CONSENSUS_THRESHOLD = 10.0
+        # 计算全网总权重
+        total_network_weight = 0.0
+        for account in self.world_state.state.values():
+            # 权重计算公式需与 vote 方法保持一致
+            weight = max(1.0, account.stake * (account.reputation / 100.0))
+            total_network_weight += weight
+            
+        # 设定通过阈值 (50%)
+        PASS_THRESHOLD_RATIO = 0.5
+        threshold = total_network_weight * PASS_THRESHOLD_RATIO
         
-        if votes_for >= CONSENSUS_THRESHOLD:
+        if votes_for > threshold:
             # 提案通过
             try:
                 ops_sop_contract.advance_to_consensus_phase(proposal_id, passed=True)
-                print(f"Proposal {proposal_id} PASSED via consensus.")
+                print(f"Proposal {proposal_id} PASSED via consensus (For: {votes_for}, Total: {total_network_weight}).")
             except Exception as e:
                 print(f"Failed to advance consensus (Pass): {e}")
                 
-        elif votes_against >= CONSENSUS_THRESHOLD:
+        elif votes_against > threshold:
             # 提案被否决
             try:
                 ops_sop_contract.advance_to_consensus_phase(proposal_id, passed=False)
-                print(f"Proposal {proposal_id} REJECTED via consensus.")
+                print(f"Proposal {proposal_id} REJECTED via consensus (Against: {votes_against}, Total: {total_network_weight}).")
             except Exception as e:
                 print(f"Failed to advance consensus (Reject): {e}")
