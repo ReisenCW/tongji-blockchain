@@ -18,6 +18,8 @@ class TransactionType:
     PROPOSE_ROOT_CAUSE = "propose_root_cause"
     VOTE = "vote"
     TRANSFER = "transfer"
+    STAKE = "stake"
+    SLASH = "slash"
 
 
 class Transaction(BaseModel):

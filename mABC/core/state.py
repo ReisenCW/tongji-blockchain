@@ -10,11 +10,15 @@ import os
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 
+from core.vm import Transaction
+
 
 class Account(BaseModel):
     """账户模型"""
     address: str
     balance: int = 0
+    stake: int = 0          # 质押,  质押量越高，投票对提案结果的影响力越大
+    reputation: int = 100   # 信誉分
     nonce: int = 0
     root_cause_proposals: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     votes: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
@@ -46,6 +50,8 @@ class WorldState:
                 CREATE TABLE IF NOT EXISTS accounts (
                     address TEXT PRIMARY KEY,
                     balance INTEGER,
+                    stake INTEGER,
+                    reputation INTEGER,
                     nonce INTEGER,
                     root_cause_proposals TEXT,
                     votes TEXT
@@ -67,11 +73,11 @@ class WorldState:
             conn = self._get_db_connection()
             cursor = conn.cursor()
             
-            cursor.execute('SELECT address, balance, nonce, root_cause_proposals, votes FROM accounts')
+            cursor.execute('SELECT address, balance, stake, reputation, nonce, root_cause_proposals, votes FROM accounts')
             rows = cursor.fetchall()
             
             for row in rows:
-                address, balance, nonce, proposals_json, votes_json = row
+                address, balance, stake, reputation, nonce, proposals_json, votes_json = row
                 # 处理可能的None值
                 proposals = json.loads(proposals_json) if proposals_json else {}
                 votes = json.loads(votes_json) if votes_json else {}
@@ -79,6 +85,8 @@ class WorldState:
                 account = Account(
                     address=address,
                     balance=balance or 0,
+                    stake=stake or 0,
+                    reputation=reputation if reputation is not None else 100,
                     nonce=nonce or 0,
                     root_cause_proposals=proposals,
                     votes=votes
@@ -103,9 +111,9 @@ class WorldState:
                 
                 cursor.execute('''
                     INSERT OR REPLACE INTO accounts 
-                    (address, balance, nonce, root_cause_proposals, votes)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (account.address, account.balance, account.nonce, proposals_json, votes_json))
+                    (address, balance, stake, reputation, nonce, root_cause_proposals, votes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (account.address, account.balance, account.stake, account.reputation, account.nonce, proposals_json, votes_json))
             
             conn.commit()
             conn.close()
@@ -163,6 +171,10 @@ class StateProcessor:
                 return self._apply_vote(tx)
             elif tx.tx_type == "transfer":
                 return self._apply_transfer(tx)
+            elif tx.tx_type == "stake":
+                return self._apply_stake(tx)
+            elif tx.tx_type == "slash":
+                return self._apply_slash(tx)
             else:
                 print(f"Unknown transaction type: {tx.tx_type}")
                 return False
@@ -200,81 +212,46 @@ class StateProcessor:
             print(f"Failed to apply propose root cause transaction: {e}")
             return False
     
+    # 使用governance_contract处理投票
     def _apply_vote(self, tx: 'Transaction') -> bool:
         """应用投票交易"""
         try:
-            proposal_id = tx.data["proposal_id"]
-            vote_option = tx.data["vote_option"].lower()
-            
-            # 验证投票选项
-            valid_options = ["for", "against", "abstain"]
-            if vote_option not in valid_options:
-                raise ValueError(f"Invalid vote option. Must be one of {valid_options}")
-            
-            # 查找提案
-            # 遍历所有账户来查找提案
-            proposal_account = None
-            proposal_data = None
-            for account in self.world_state.state.values():
-                if proposal_id in account.root_cause_proposals:
-                    proposal_account = account
-                    proposal_data = account.root_cause_proposals[proposal_id]
-                    break
-            
-            if not proposal_data:
-                raise ValueError(f"Proposal {proposal_id} not found")
-            
-            # 添加投票到投票者账户
-            voter_account = self.world_state.get_account(tx.sender)
-            if not voter_account:
-                voter_account = self.world_state.create_account(tx.sender)
-            
-            vote_data = {
-                "proposal_id": proposal_id,
-                "vote_option": vote_option,
-                "timestamp": tx.timestamp
-            }
-            
-            voter_account.votes[proposal_id] = vote_data
-            self.world_state.update_account(voter_account)
-            
-            # 更新提案的投票计数
-            proposal_data["votes"][vote_option] += 1
-            
-            # 更新提案账户
-            if proposal_account:
-                proposal_account.root_cause_proposals[proposal_id] = proposal_data
-                self.world_state.update_account(proposal_account)
-            
-            return True
+            from contracts.governance_contract import GovernanceContract
+            governance_contract = GovernanceContract(self.world_state)
+            return governance_contract.vote(tx.data, tx.sender, tx.timestamp)
         except Exception as e:
             print(f"Failed to apply vote transaction: {e}")
             return False
     
+    # 使用token_contract处理转账、质押和惩罚
     def _apply_transfer(self, tx: 'Transaction') -> bool:
         """应用转账交易"""
         try:
-            to_address = tx.data["to"]
-            amount = tx.data["amount"]
-            
-            # 执行转账
-            from_account = self.world_state.get_account(tx.sender)
-            to_account = self.world_state.get_account(to_address)
-            
-            if not from_account or from_account.balance < amount:
-                return False
-            
-            if not to_account:
-                to_account = self.world_state.create_account(to_address)
-            
-            from_account.balance -= amount
-            to_account.balance += amount
-            
-            self.world_state.update_account(from_account)
-            self.world_state.update_account(to_account)
-            return True
+            from contracts.token_contract import TokenContract
+            token_contract = TokenContract(self.world_state)
+            return token_contract.transfer(tx.data, tx.sender)
         except Exception as e:
             print(f"Failed to apply transfer transaction: {e}")
+            return False
+
+    def _apply_stake(self, tx: 'Transaction') -> bool:
+        """应用质押交易"""
+        try:
+            from contracts.token_contract import TokenContract
+            token_contract = TokenContract(self.world_state)
+            return token_contract.stake(tx.data, tx.sender)
+        except Exception as e:
+            print(f"Failed to apply stake transaction: {e}")
+            return False
+
+    def _apply_slash(self, tx: 'Transaction') -> bool:
+        """应用惩罚交易"""
+        try:
+            from contracts.token_contract import TokenContract
+            token_contract = TokenContract(self.world_state)
+            return token_contract.slash(tx.data, tx.sender)
+        except Exception as e:
+            print(f"Failed to apply slash transaction: {e}")
             return False
 
 
