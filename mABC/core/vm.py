@@ -192,8 +192,8 @@ class Blockchain:
 
             # 生产环境使用ECDSA签名验证
             try:
-                # 验证签名（不指定hashfunc，让ecdsa库自己处理哈希）
-                result = vk.verify(
+                # 验证签名（使用 verify_digest，因为签名时用的是 sign_digest）
+                result = vk.verify_digest(
                     bytes.fromhex(tx.signature),
                     bytes.fromhex(tx_hash),
                     sigdecode=sigdecode_der
