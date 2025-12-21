@@ -1,5 +1,22 @@
-__pycache__
-.vscode
+# uv 环境文件
+.venv/
+uv.lock
+__pycache__/
+*.pyc
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 项目特定文件
 data/data_
 data/meta/span_info_0109.jsonl
 data/handle_
