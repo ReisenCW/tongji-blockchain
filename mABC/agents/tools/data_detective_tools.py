@@ -24,6 +24,7 @@ def query_endpoint_stats(endpoint: str, minute: str) -> dict:
     
     Returns:
     - dict: A dictionary containing the statistical data of the specified endpoint at the specified time. 
+      If no data is available, returns an empty dict {} - this means the endpoint had no activity at that time.
       The dictionary includes the following keys:
         - 'calls' (int): The total number of requests made to the endpoint.
         - 'success_rate' (float): The percentage of requests that completed successfully. 
@@ -47,7 +48,8 @@ def query_endpoint_metrics_in_range(endpoint: str, minute: str) -> dict:
     
     Returns:
     - dict: A dictionary containing aggregated statistical data for the specified endpoint over the specified time range. 
-      The dictionary includes the following keys:
+      If no data is available for the endpoint, the returned dict will contain all zero values for each time minute.
+      The dictionary includes the following keys (for each minute in the range):
         - 'calls' (int): The total number of requests made to the endpoint within the time range.
         - 'success_rate' (float): The average percentage of successful requests. 
           Calculated as (1 - Number of Bad Requests / Total Number of Calls) * 100.

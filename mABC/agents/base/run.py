@@ -259,7 +259,15 @@ class ReActTotRun(BaseRun):
         status = REACT_STATUS_RE
         step_record = ""
         reason_loop_count = 0
-        max_reason_loops = 10  # 防止无限循环
+        consecutive_no_data = 0  # 追踪连续获得无数据结果的次数
+        previous_action = None  # 追踪上一个执行的动作
+        
+        # 根据Agent类型设置不同的最大循环次数
+        # ProcessScheduler需要更多步骤（查询多个端点+分析）
+        if "Process Scheduler" in agent.role_name:
+            max_reason_loops = 15  # ProcessScheduler需要更多步骤
+        else:
+            max_reason_loops = 5   # 其他Agent保持5次
         
         while status == REACT_STATUS_RE:
             reason_loop_count += 1
@@ -281,13 +289,39 @@ class ReActTotRun(BaseRun):
             
         if status == REACT_STATUS_ACT:
             # 如果我们处于ACT状态，则执行相应的操作，并更新状态
-            # action = result["action"] # 行动前记录到历史
             action_tool_name = result["action_tool_name"]
             action_tool_input = result["action_tool_input"]
             step_record += f"\nAction Tool Name: {action_tool_name}"
             step_record += f"\nAction Tool Input: {action_tool_input}"
             action = f"{action_tool_name}({action_tool_input})"
+            
+            # 检查是否重复执行相同的动作
+            if action == previous_action:
+                print(f"⚠️  WARNING: 重复执行相同的动作，这可能导致无限循环")
+                consecutive_no_data += 1
+                if consecutive_no_data >= 3:
+                    print(f"❌ ERROR: 连续{consecutive_no_data}次执行相同动作且无结果，强制退出")
+                    final_answer = "Unable to determine root cause - repeated queries returned no data. The required endpoint data is not available."
+                    step_record += f"\nFinal Answer: {final_answer}"
+                    return REACT_STATUS_FINISH, step_record
+            else:
+                consecutive_no_data = 0  # 重置计数器
+            
+            previous_action = action
             status, step_output = self.act(action, agent_tool_env)  # 执行动作
+            
+            # 检查是否返回了无数据标志
+            if isinstance(step_output, str) and "[NO_DATA]" in step_output:
+                consecutive_no_data += 1
+                print(f"⚠️  WARNING: 查询返回无数据 ({consecutive_no_data} times)")
+                if consecutive_no_data >= 3:
+                    print(f"❌ ERROR: 连续{consecutive_no_data}次查询无数据，可能该端点在该时间段无活动")
+                    final_answer = "Unable to determine root cause - the endpoint has no data at the specified time. Please verify the endpoint name or time period."
+                    step_record += f"\nFinal Answer: {final_answer}"
+                    return REACT_STATUS_FINISH, step_record
+            else:
+                consecutive_no_data = 0  # 重置计数器
+            
             step_record += f"\nObservation: the result of {action} is {step_output}"  # 将这一步的输出加入历史记录
         elif status == REACT_STATUS_FINISH:
             final_answer = result["final_answer"]
@@ -298,8 +332,12 @@ class ReActTotRun(BaseRun):
     def reason(self, agent: AgentWorkflow, question):
         print(f"🔍 DEBUG: 进入 reason 方法")
         tools, tool_names = get_agent_tool_list_prompt(agent.tool_path)
+        # 先单独格式化 tool_prompt，避免与 role_desc 中的占位符冲突
+        formatted_tool_prompt = agent.tool_prompt.format(tools=tools, tool_names=tool_names)
+        # 组合所有内容
+        system_content = f"{agent.role_desc}{formatted_tool_prompt}{agent.base_prompt}"
         messages = [
-            {"role": "system", "content": f"{agent.role_desc}{agent.tool_prompt}{agent.base_prompt}".format(tools=tools, tool_names=tool_names)},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": question},
         ]
         print(f"🔍 DEBUG: 准备调用 llm_chat")
