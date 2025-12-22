@@ -2,6 +2,7 @@ import json
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import os
 
 # Function to load data from a JSON file
 def load_data(filename):
@@ -37,8 +38,9 @@ def draw_topology(topology_path):
     plt.close()  # Close the plot to free up memory
 
 # Specify the paths to your data
-service_path = 'data/topology/service_maps.json'
-endpoint_path = 'data/topology/endpoint_maps.json'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+service_path = os.path.join(script_dir, '..', 'data', 'topology', 'service_maps.json')
+endpoint_path = os.path.join(script_dir, '..', 'data', 'topology', 'endpoint_maps.json')
 
 # Draw the topology graphs
 draw_topology(service_path)

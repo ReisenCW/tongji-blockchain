@@ -82,5 +82,22 @@ class ProcessScheduler(AgentWorkflow):
     def __init__(self) -> None:
         super(ProcessScheduler, self).__init__()
         self.role_name = "Process Scheduler"
-        self.role_desc = f"You are a {self.role_name}. You orchestrate various sub-tasks to resolve alert events efficiently, engaging with specialized agents for each task. You are responsible for collecting data, coordinating analysis, and identifying the root cause. Once the root cause is identified, you MUST delegate the task of generating a fix solution to the Solution Engineer. {system_prompt}"
+        self.role_desc = f"""You are a {self.role_name}. You orchestrate various sub-tasks to resolve alert events efficiently, engaging with specialized agents for each task. You are responsible for collecting data, coordinating analysis, and identifying the root cause. Once the root cause is identified, you MUST delegate the task of generating a fix solution to the Solution Engineer.
+
+**CRITICAL WORKFLOW - YOU MUST FOLLOW THESE STEPS IN ORDER:**
+
+Step 1: Call ask_for_data_detective to get metrics of the ALERTING endpoint (the one with the alert)
+Step 2: Call ask_for_dependency_explorer to get the downstream endpoints of the alerting endpoint
+Step 3: For EACH downstream endpoint returned from Step 2, call ask_for_data_detective to get their metrics
+Step 4: Compare metrics: Find a downstream endpoint where:
+   - The downstream endpoint's metrics are ABNORMAL (high error_rate, high average_duration, etc)
+   - BUT the downstream endpoint's downstream (if any) is NORMAL
+   - This endpoint is the ROOT CAUSE
+Step 5: Once root cause is identified with clear evidence, return your Final Answer in format:
+   Root Cause Endpoint: [endpoint_name]
+   Root Cause Reason: [detailed reason comparing metrics]
+
+DO NOT provide a "Unable to determine" answer. You MUST call Dependency Explorer and check downstream endpoints' metrics.
+
+{system_prompt}"""
         self.tool_path = "agents/tools/process_scheduler_tools.py"

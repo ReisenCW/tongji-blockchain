@@ -1,9 +1,11 @@
 import json
 from datetime import datetime, timedelta
+import os
 
 class MetricExplorer:
     def __init__(self):
-        stats_file="data/metric/endpoint_stats.json"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        stats_file = os.path.join(script_dir, '..', 'data', 'metric', 'endpoints_stat.json')
         self.aggregated_stats = self.load_data(stats_file)
 
     def load_data(self, filename):
@@ -12,6 +14,9 @@ class MetricExplorer:
 
     def query_endpoint_stats(self, endpoint, time_minute):
         endpoint_data = self.aggregated_stats.get(endpoint, {})
+        # 如果时间格式不包含秒，自动添加 ":00"
+        if len(time_minute) == 16:  # "YYYY-MM-DD HH:MM" 格式
+            time_minute = time_minute + ":00"
         return endpoint_data.get(time_minute, {})
 
     def query_endpoint_stats_in_range(self, endpoint, time_minute):

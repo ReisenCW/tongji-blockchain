@@ -30,7 +30,7 @@ class Blockchain:
         self.pending_transactions: List[Transaction] = []
         self.chain: List[Block] = []
         self.gas_price = 1  # 每单位Gas的价格
-        self.min_gas_limit = 5000  # 最小Gas限制
+        self.min_gas_limit = 5000  # 最小Gas限制（调整以支持投票交易）
         # 创建创世区块
         self._create_genesis_block()
 

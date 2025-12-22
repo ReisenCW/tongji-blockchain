@@ -2,14 +2,15 @@ from collections import defaultdict
 from datetime import datetime
 import json
 import tqdm
+import os
 
 # 存储每个endpoint每分钟的信息
 # 结构：{endpoint: {minute: {'calls': int, 'errors': int, 'total_time': int, 'timeout': int}}}
 endpoint_stats = defaultdict(lambda: defaultdict(lambda: {'calls': 0, 'errors': 0, 'total_time': 0, 'timeout': 0}))
 
 # 文件路径
-# file_path = 'data/meta/span_info_0109.jsonl'
-file_path = 'data/records_3/ops/records_6.jsonl'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, '..', 'data', 'records_3', 'ops', 'records_6.jsonl')
 
 # def preetify_endpoint_Name(s):
 #     splits = s.split('/')
@@ -61,9 +62,9 @@ for endpoint, minute_data in tqdm.tqdm(endpoint_stats.items()):
 
 # 写入结果到文件
 import os
-path = "data/metric/"
+path = os.path.join(script_dir, '..', 'data', 'metric')
 if os.path.exists(path) == False:
     os.makedirs(path)
-output_file = path + 'endpoint_stats.json'
+output_file = os.path.join(path, 'endpoints_stat.json')
 with open(output_file, 'w') as f:
     json.dump(aggregated_stats, f, indent=4)

@@ -234,14 +234,21 @@ class ReActTotRun(BaseRun):
     
     def eval_and_run_one_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run: ThreeHotCotRun, agents, history=""):
         status, step_record = self.run_one_step(agent, question, agent_tool_env, history)
-        # 启用投票验证机制
-        result = eval_run.run(agents, agent.role_name, question, history + step_record)
-        # 如果投票结果为True，代表可以继续执行下一步
-        if result:
-            return status, step_record
-        # 否则，重新执行这一步
+        
+        # 只在得出最终答案时才触发投票验证，中间步骤不投票
+        if status == REACT_STATUS_FINISH:
+            # 启用投票验证机制 - 仅对最终答案投票
+            result = eval_run.run(agents, agent.role_name, question, history + step_record)
+            # 如果投票结果为True，代表最终答案通过
+            if result:
+                return status, step_record
+            # 否则，重新执行整个流程
+            else:
+                print("❌ 最终答案未通过投票，重新分析...")
+                return self.eval_and_run_one_step(agent, question, agent_tool_env, eval_run, agents, history)
         else:
-            return self.eval_and_run_one_step(agent, question, agent_tool_env, eval_run, agents, history)
+            # 中间步骤（Action/Thought）直接通过，不触发投票
+            return status, step_record
 
     # 进行一步运行, 状态变化如下:
     # REACT_STATUS_RE => REACT_STATUS_ACT/REACT_STATUS_FINISH
@@ -259,7 +266,7 @@ class ReActTotRun(BaseRun):
             print(f"🔍 DEBUG: Reason循环次数 {reason_loop_count}/{max_reason_loops}")
             
             if reason_loop_count > max_reason_loops:
-                print(f"❌ ERROR: Reason循环超过最大次数，强制退出")
+                print(f"❌ ERROR: Reason循环超过最大次数({max_reason_loops})，强制退出")
                 final_answer = "Unable to determine root cause after multiple reasoning steps."
                 step_record += f"\nFinal Answer: {final_answer}"
                 return REACT_STATUS_FINISH, step_record

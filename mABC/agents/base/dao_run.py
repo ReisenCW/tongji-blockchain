@@ -146,6 +146,7 @@ class DAOExecutor(BaseRun):
         """
         try:
             # 使用 ChainClient 创建并提交交易
+            # 投票交易是轻量级操作，gas_limit 设为 5000
             tx = self.chain_client.create_transaction(
                 tx_type="vote",
                 sender=agent.wallet_address,
@@ -153,7 +154,8 @@ class DAOExecutor(BaseRun):
                     "proposal_id": proposal_id,
                     "vote_option": vote_option
                 },
-                private_key=agent.private_key
+                private_key=agent.private_key,
+                gas_limit=5000  # 投票交易Gas费用: 5000 * 1 = 5000 Token
             )
             
             # 提交交易并出块

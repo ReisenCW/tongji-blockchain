@@ -6,8 +6,9 @@ import tqdm
 
 
 # 文件路径和结果文件夹
-file_path = 'data/records_3/ops/records_6.jsonl'
-result_folder = 'data/topology/'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, '..', 'data', 'records_3', 'ops', 'records_6.jsonl')
+result_folder = os.path.join(script_dir, '..', 'data', 'topology')
 if not os.path.exists(result_folder):
     os.makedirs(result_folder)
 
@@ -33,6 +34,6 @@ for endpoint, minutes in tqdm.tqdm(endpoint_maps.items()):
         # 将列表转换为集合去重，再转回列表
         minutes[minute] = list(data_list)
 
-output_file = result_folder + 'endpoint_maps.json'
+output_file = os.path.join(result_folder, 'endpoint_maps.json')
 with open(output_file, 'w') as f:
     json.dump(endpoint_maps, f, indent=4)

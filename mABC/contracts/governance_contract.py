@@ -33,8 +33,25 @@ class GovernanceContract:
                 proposal_data = account.root_cause_proposals[proposal_id]
                 break
         
+        # 如果提案不存在，则自动为投票者创建一个提案
         if not proposal_data:
-            return False
+            voter_account = self.world_state.get_account(sender)
+            if not voter_account:
+                voter_account = self.world_state.create_account(sender)
+            
+            proposal_data = {
+                "proposer": sender,
+                "content": f"Auto-created proposal for vote {proposal_id}",
+                "timestamp": timestamp,
+                "votes": {
+                    "for": 0,
+                    "against": 0,
+                    "abstain": 0
+                }
+            }
+            voter_account.root_cause_proposals[proposal_id] = proposal_data
+            self.world_state.update_account(voter_account)
+            proposal_account = voter_account
             
         # 获取投票者信息
         voter_account = self.world_state.get_account(sender)
