@@ -286,8 +286,38 @@ async def generate_test_data():
         
         client = ChainClient(blockchain)
         
+        # 1. 获取现有账户或创建新账户
         accounts = []
-        for i in range(5):
+        existing_accounts = list(world_state.state.values())
+        
+        # 简单的内存缓存，用于存储生成的私钥 (仅用于演示，重启丢失)
+        if not hasattr(app, "demo_private_keys"):
+            app.demo_private_keys = {}
+            
+        if len(existing_accounts) < 5:
+            # 如果账户不足5个，补充创建 (系统初始化或恢复)
+            for i in range(5 - len(existing_accounts)):
+                private_key = SigningKey.generate(curve=SECP256k1)
+                public_key = private_key.get_verifying_key()
+                address = generate_address(public_key.to_string())
+                
+                PublicKeyRegistry.register_public_key(
+                    address,
+                    public_key.to_string().hex()
+                )
+                
+                account = world_state.create_account(address)
+                account.balance = random.randint(10000, 80000)
+                account.reputation = random.randint(80, 100)
+                world_state.update_account(account)
+                
+                app.demo_private_keys[address] = private_key
+                accounts.append({'address': address, 'private_key': private_key})
+        
+        # [新增] 模拟真实场景：动态扩容
+        # 10% 的概率会有新 Agent 加入网络 (模拟节点上线/扩容)
+        elif random.random() < 0.1:
+            print("Simulating Network Expansion: New Agent Joining...")
             private_key = SigningKey.generate(curve=SECP256k1)
             public_key = private_key.get_verifying_key()
             address = generate_address(public_key.to_string())
@@ -297,18 +327,50 @@ async def generate_test_data():
                 public_key.to_string().hex()
             )
             
-            account = world_state.get_account(address)
-            if account is None:
-                account = world_state.create_account(address)
-            account.balance = random.randint(10000, 80000) # 随机余额
-            account.reputation = random.randint(80, 100)   # 随机信誉
+            account = world_state.create_account(address)
+            account.balance = random.randint(5000, 20000) # 新节点初始资金较少
+            account.reputation = 60 # 新节点初始信誉较低
             world_state.update_account(account)
             
-            accounts.append({
-                'address': address,
-                'private_key': private_key
-            })
+            app.demo_private_keys[address] = private_key
+            # 将新 Agent 也加入到当次可用的 accounts 列表中
+            accounts.append({'address': address, 'private_key': private_key})
+            
+            # 记录一个特殊的“节点加入”日志事件，让前端能看到
+            ops_sop_contract.submit_data_collection(
+                agent_id=address,
+                data_summary="新节点入网注册",
+                raw_data={"event": "node_join", "version": "v1.2.0", "status": "online"}
+            )
+        else:
+            # 如果已有账户，使用现有账户
+            # 注意：这里我们只能使用我们在内存中保存了私钥的账户
+            for acc in existing_accounts:
+                if acc.address in app.demo_private_keys:
+                    accounts.append({
+                        'address': acc.address, 
+                        'private_key': app.demo_private_keys[acc.address]
+                    })
+            
+            # 如果所有现有账户都没有私钥（比如重启服务后），则必须强制创建新账户
+            if not accounts:
+                print("Warning: Existing accounts found but private keys lost. Creating new accounts.")
+                for i in range(5):
+                    private_key = SigningKey.generate(curve=SECP256k1)
+                    public_key = private_key.get_verifying_key()
+                    address = generate_address(public_key.to_string())
+                    PublicKeyRegistry.register_public_key(address, public_key.to_string().hex())
+                    account = world_state.create_account(address)
+                    account.balance = random.randint(10000, 80000)
+                    account.reputation = random.randint(80, 100)
+                    world_state.update_account(account)
+                    app.demo_private_keys[address] = private_key
+                    accounts.append({'address': address, 'private_key': private_key})
         
+        # 确保 accounts 不为空
+        if not accounts:
+             raise HTTPException(status_code=500, detail="No available accounts with private keys")
+
         transactions_created = 0
         
         # 随机生成一些交易

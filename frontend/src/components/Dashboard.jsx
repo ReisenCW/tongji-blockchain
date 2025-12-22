@@ -66,7 +66,7 @@ function Dashboard() {
       message.loading({ content: '生成数据中...', key: 'gen' })
       const res = await blockchainAPI.generateTestData()
       if (res.success) {
-        message.success({ content: `成功生成 ${res.accounts_created} 个账户`, key: 'gen' })
+        message.success({ content: '新区块生成成功！交易与状态已更新', key: 'gen' })
         loadAccounts()
         loadSop()
         loadVoting()
