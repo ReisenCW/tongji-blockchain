@@ -14,17 +14,33 @@ system_prompt = """你是一个去中心化运维专家，必须遵守区块链�
 # 工具使用 Prompt
 tool_prompt = """你可以使用以下工具：{tools}
 
-对话将按照以下格式进行：
-Question: 你必须回答的输入问题
-Thought: 你应该始终思考要做什么
-Action Tool Name: 要使用的工具名称，必须是 [{tool_names}] 中的一个
-Action Tool Input: 工具的输入，应该是 [Action Tool Name] 的参数，例如对于 Action Tool Name "add(a,b)"，输入应该是 "a=1, b=2"
-Observation: 行动的结果
-[this Thought/Action Tool Name/Action Tool Input/Observation 可以重复多次或零次]
-Thought: 我现在知道最终答案了
-Final Answer: 原始输入问题的最终答案
+**你必须严格按照以下格式进行对话，每次回复都必须包含其中一种模式：**
 
-此时，你的回答必须以 "Thought" 开头。"""
+**模式1：需要使用工具收集信息时**
+Thought: [你对当前情况的思考和下一步计划]
+Action Tool Name: [要使用的工具名称，必须是 [{tool_names}] 中的一个]
+Action Tool Input: [工具的输入参数，例如对于工具 "add(a,b)"，输入应该是 "a=1, b=2"]
+[系统会自动返回 Observation: 工具执行结果]
+
+**模式2：已有足够信息得出最终答案时**
+Thought: 我现在知道最终答案了
+Final Answer: [对原始问题的完整、详细的最终答案]
+
+**关键要求：**
+1. 每次回复必须以 "Thought:" 开头
+2. 如果需要收集更多信息，使用模式1（提供 Action Tool Name 和 Action Tool Input）
+3. 如果已有足够信息回答问题，使用模式2（提供 Final Answer）
+4. **绝对不要**只输出 Thought 而不输出 Action 或 Final Answer
+5. Final Answer 必须是完整的答案，不能是简单的一句话
+
+**CRITICAL: 参数格式要求**
+- **字符串参数必须用引号包裹**，例如：endpoint="train-buy"，minute="2023-10-15 14:00:00"
+- 数字参数不需要引号，例如：count=5, threshold=0.5
+- 如果参数包含连字符(-)、空格或特殊字符，必须用引号包裹
+- 错误示例：endpoint=train-buy （会被解析为 train 减去 buy）
+- 正确示例：endpoint="train-buy"
+
+[模式1和模式2可以重复多次，但最终必须以模式2结束]"""
 
 # 投票 Prompt
 vote_prompt = """作为 P2P 组织的成员，你有权对任何成员的投票进行投票。
@@ -45,7 +61,20 @@ Reason: 你发起或不发起投票的原因
 Stake: 质押的 Token 数量"""
 
 # 基础 Prompt
-base_prompt = """你应该不断重复上述格式，直到你有足够的信息来回答问题，而不需要使用更多工具。
+base_prompt = """
+**重要提醒：你的回复格式要求**
+- 每次回复必须以 "Thought:" 开头
+- 如果需要使用工具，必须同时提供 "Action Tool Name:" 和 "Action Tool Input:"
+- 如果已有足够信息，必须提供 "Final Answer:"
+- 不要只输出 Thought 而没有后续的 Action 或 Final Answer
+
+**关于数据查询的重要说明**
+- 如果工具返回空值 {} 或显示 "[NO_DATA]"，说明该端点在该时间段没有数据或活动
+- 不要重复查询相同的端点和时间，这会导致无限循环
+- 如果某个端点连续3次查询都无数据，应该停止查询该端点，改为查询其他端点或得出最终答案
+- 无数据不等于查询失败，这是正常的数据状态，代表该端点可能在该时间没有请求
+
+你应该不断重复上述格式，直到你有足够的信息来回答问题。
 答案必须包含一系列要点，解释你是如何得出答案的。这可以包括之前对话历史的各个方面。
 
 请尽可能回答以下问题。那么，让我们开始吧！
