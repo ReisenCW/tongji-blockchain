@@ -234,9 +234,8 @@ class ReActTotRun(BaseRun):
     
     def eval_and_run_one_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run: ThreeHotCotRun, agents, history=""):
         status, step_record = self.run_one_step(agent, question, agent_tool_env, history)
-        # result = eval_run.run(agents, agent.role_name, question, history + step_record)
-        # 测试阶段可暂不开启投票
-        result = True
+        # 启用投票验证机制
+        result = eval_run.run(agents, agent.role_name, question, history + step_record)
         # 如果投票结果为True，代表可以继续执行下一步
         if result:
             return status, step_record
@@ -252,13 +251,27 @@ class ReActTotRun(BaseRun):
         history = f"Question: {question}" if history == "" else history
         status = REACT_STATUS_RE
         step_record = ""
+        reason_loop_count = 0
+        max_reason_loops = 10  # 防止无限循环
+        
         while status == REACT_STATUS_RE:
+            reason_loop_count += 1
+            print(f"🔍 DEBUG: Reason循环次数 {reason_loop_count}/{max_reason_loops}")
+            
+            if reason_loop_count > max_reason_loops:
+                print(f"❌ ERROR: Reason循环超过最大次数，强制退出")
+                final_answer = "Unable to determine root cause after multiple reasoning steps."
+                step_record += f"\nFinal Answer: {final_answer}"
+                return REACT_STATUS_FINISH, step_record
+            
             # 当在Reason状态时，将上一步的输出（如有）和历史记录累积作为新的输入
             step_input = history
             result = self.reason(agent, step_input)
             status = result["status"]
             thought = result["thought"]
             step_record += f"\nThought: {thought}"  # 将这一步的输出Thought加入历史记录
+            print(f"🔍 DEBUG: Reason完成，返回状态: {status}")
+            
         if status == REACT_STATUS_ACT:
             # 如果我们处于ACT状态，则执行相应的操作，并更新状态
             # action = result["action"] # 行动前记录到历史
@@ -276,13 +289,17 @@ class ReActTotRun(BaseRun):
 
     # 进行推理, 返回状态和结果
     def reason(self, agent: AgentWorkflow, question):
+        print(f"🔍 DEBUG: 进入 reason 方法")
         tools, tool_names = get_agent_tool_list_prompt(agent.tool_path)
         messages = [
             {"role": "system", "content": f"{agent.role_desc}{agent.tool_prompt}{agent.base_prompt}".format(tools=tools, tool_names=tool_names)},
             {"role": "user", "content": question},
         ]
+        print(f"🔍 DEBUG: 准备调用 llm_chat")
         answer = self.qa(messages, stop_words=STOP_WORDS_REACT)
+        print(f"🔍 DEBUG: llm_chat 返回，开始解析")
         result = self.parse(answer)
+        print(f"🔍 DEBUG: parse 完成，结果状态: {result['status']}")
         return result
 
     # 解析推理结果, 返回状态和内容
@@ -295,6 +312,10 @@ class ReActTotRun(BaseRun):
             "action_tool_name": None,
             "action_tool_input": None,
         }
+        
+        print(f"🔍 DEBUG: 开始解析回复，长度: {len(answer)}")
+        print(f"🔍 DEBUG: 回复内容前100字: {answer[:100]}")
+        
         if "Thought:" in answer:
             # 提取思考内容
             result["thought"] = (
@@ -304,12 +325,16 @@ class ReActTotRun(BaseRun):
                 .strip()
             )
             # 提取Thought部分，假设它出现在Action或Final Answer之前
+            print(f"🔍 DEBUG: 检测到 Thought")
+        
         # 检查是否含有最终答案
         if "Final Answer:" in answer:
             # 提取最终答案并返回完成状态
             result["final_answer"] = answer.split("Final Answer:")[1].strip()
             result["status"] = REACT_STATUS_FINISH
+            print(f"🔍 DEBUG: 检测到 Final Answer，返回完成状态")
             return result
+        
         # 检查是否需要执行某个操作
         elif "Action Tool Name:" in answer and "Action Tool Input:" in answer:
             # 提取行动指令并返回行动状态
@@ -324,9 +349,12 @@ class ReActTotRun(BaseRun):
             result["action_tool_name"] = action_tool_name
             result["action_tool_input"] = action_tool_input
             result["status"] = REACT_STATUS_ACT
+            print(f"🔍 DEBUG: 检测到 Action Tool: {action_tool_name}")
             return result
+        
         # 如果没有最终答案也没有行动指令，返回思考状态（重新思考）
         else:
+            print(f"🔍 DEBUG: 未检测到 Final Answer 或 Action Tool，继续思考")
             return result
 
     # 执行行动, 返回新的状态和输出结果

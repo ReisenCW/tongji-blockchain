@@ -185,7 +185,7 @@ class ChainClient:
                           data: Dict[str, Any],
                           private_key: SigningKey,
                           gas_price: int = 1,
-                          gas_limit: int = 21000) -> Transaction:
+                          gas_limit: int = 5000) -> Transaction:
         """
         创建并签名一个交易
         
@@ -195,7 +195,7 @@ class ChainClient:
             data: 交易数据
             private_key: 发送者私钥
             gas_price: Gas 价格（默认1）
-            gas_limit: Gas 限制（默认21000）
+            gas_limit: Gas 限制（默认5000）
         
         Returns:
             Transaction: 已签名的交易对象
