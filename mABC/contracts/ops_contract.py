@@ -159,13 +159,12 @@ class OpsSOPContract:
 
     def reset_for_testing(self):
         """仅用于单元测试：重置合约状态"""
-        OpsSOPContract._storage = {
-            "current_state": SOPState.Init.value,
-            "incident_data": {},
-            "proposals": {},
-            "current_proposal_id": None,
-            "events": []
-        }
+        # 修改为原地更新，确保实例引用的 storage 被重置
+        self.storage["current_state"] = SOPState.Init.value
+        self.storage["incident_data"] = {}
+        self.storage["proposals"] = {}
+        self.storage["current_proposal_id"] = None
+        self.storage["events"] = []
 
 
 # 全局单例实例（全项目统一使用）

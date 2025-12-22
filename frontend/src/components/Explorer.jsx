@@ -5,6 +5,7 @@ import { blockchainAPI } from '../utils/api'
 import BlockChainView from './BlockChainView'
 import TransactionView from './TransactionView'
 import AuditView from './AuditView'
+import Dashboard from './Dashboard'
 import './Explorer.css'
 
 const { TabPane } = Tabs
@@ -85,6 +86,9 @@ function Explorer() {
           </TabPane>
           <TabPane tab="审计视图" key="audit">
             <AuditView />
+          </TabPane>
+          <TabPane tab="运维控制台" key="dashboard">
+            <Dashboard />
           </TabPane>
         </Tabs>
       </Card>
