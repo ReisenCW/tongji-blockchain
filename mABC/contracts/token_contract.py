@@ -83,3 +83,80 @@ class TokenContract:
         
         self.world_state.update_account(target_account)
         return True
+
+    def reward(self, tx_data: Dict[str, Any], sender: str) -> bool:
+        """
+        执行奖励 (从金库扣款 + 目标账户加款 + 信誉)
+        :param tx_data: 包含 'target', 'amount', 'reputation'
+        :param sender: 发送者地址 (通常是系统或合约)
+        """
+        target_address = tx_data.get("target")
+        amount = tx_data.get("amount", 0)
+        reputation = tx_data.get("reputation", 0)
+        
+        if not target_address:
+            return False
+            
+        from_account = self.world_state.get_account(sender)
+        if not from_account:
+            from_account = self.world_state.create_account(sender)
+        
+        target_account = self.world_state.get_account(target_address)
+        if not target_account:
+            target_account = self.world_state.create_account(target_address)
+            
+        if amount > 0:
+            if from_account.balance < amount:
+                return False
+            from_account.balance -= amount
+            target_account.balance += amount
+        if reputation != 0:
+            target_account.reputation += reputation
+            # 限制信誉范围 0-100
+            target_account.reputation = max(0, min(100, target_account.reputation))
+        
+        self.world_state.update_account(from_account)
+        self.world_state.update_account(target_account)
+        return True
+    
+    def penalty(self, tx_data: Dict[str, Any], sender: str) -> bool:
+        """
+        执行罚没 (将目标余额的一部分转入系统金库，并降低信誉)
+        :param tx_data: 包含 'target', 'amount', 'reputation'
+        :param sender: 发送者地址 (通常是系统或合约)
+        """
+        target_address = tx_data.get("target")
+        amount = tx_data.get("amount", 0)
+        reputation = tx_data.get("reputation", 0)
+        
+        if not target_address or amount < 0:
+            return False
+        
+        target_account = self.world_state.get_account(target_address)
+        if not target_account:
+            return False
+        
+        # 罚没金额不超过余额
+        amount = min(amount, max(0, target_account.balance))
+        
+        # 找到系统金库账户
+        try:
+            from core.vm import blockchain
+            treasury = blockchain._get_treasury_account()
+        except Exception:
+            treasury = None
+        
+        # 扣减余额并转入金库（若存在）
+        if amount > 0:
+            target_account.balance -= amount
+            if treasury:
+                treasury.balance = (treasury.balance or 0) + amount
+                self.world_state.update_account(treasury)
+        
+        # 信誉调整
+        if reputation != 0:
+            target_account.reputation += reputation
+            target_account.reputation = max(0, min(100, target_account.reputation))
+        
+        self.world_state.update_account(target_account)
+        return True

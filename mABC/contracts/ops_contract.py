@@ -44,7 +44,10 @@ class OpsSOPContract:
 
     def _emit_event(self, name: str, **kwargs):
         """发射事件（供前端和成员4监听）"""
+        # 生成唯一ID
+        event_id = hashlib.sha256(f"{name}{datetime.now().isoformat()}{str(kwargs)}".encode()).hexdigest()
         event = {
+            "id": event_id,
             "name": name,
             "timestamp": datetime.now().isoformat(),
             **kwargs

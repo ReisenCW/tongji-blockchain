@@ -58,9 +58,14 @@ class GovernanceContract:
         if not voter_account:
             voter_account = self.world_state.create_account(sender)
             
-        # 计算权重: 质押量 * (信誉分 / 100)
-        # 基础权重为 1 (防止无质押无法投票，或者根据业务逻辑调整)
-        weight = max(1.0, voter_account.stake * (voter_account.reputation / 100.0))
+        # 计算权重（与前端展示保持一致）：
+        # 基础权重: 1.0
+        # 信誉加成: max(0, (reputation - 50) / 10.0)
+        # 质押加成: stake / 1000.0
+        # 当 stake=0 时也具有非 1 的权重，避免全为 1
+        rep_bonus = max(0.0, (voter_account.reputation - 50) / 10.0)
+        stake_bonus = voter_account.stake / 1000.0
+        weight = 1.0 + rep_bonus + stake_bonus
             
         vote_data = {
             "proposal_id": proposal_id,
@@ -95,12 +100,14 @@ class GovernanceContract:
         votes_for = proposal_data["votes"]["for"]
         votes_against = proposal_data["votes"]["against"]
         
-        # 计算全网总权重
+        # 计算参与者总权重（仅统计对该提案有投票记录的账户，避免非参与账户和系统金库影响阈值）
         total_network_weight = 0.0
         for account in self.world_state.state.values():
-            # 权重计算公式需与 vote 方法保持一致
-            weight = max(1.0, account.stake * (account.reputation / 100.0))
-            total_network_weight += weight
+            if account.votes.get(proposal_id):
+                rep_bonus = max(0.0, (account.reputation - 50) / 10.0)
+                stake_bonus = account.stake / 1000.0
+                weight = 1.0 + rep_bonus + stake_bonus
+                total_network_weight += weight
             
         # 设定通过阈值 (50%)
         PASS_THRESHOLD_RATIO = 0.5

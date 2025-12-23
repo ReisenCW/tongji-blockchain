@@ -1,0 +1,34 @@
+[
+    {
+        "case_id": "CASE-001",
+        "title": "High Latency in Order Service due to Database Lock",
+        "root_cause": "Database Lock",
+        "symptom": "High Response Time",
+        "metrics": "response_time > 2000ms",
+        "solution": "Check for long-running transactions in the database. Kill any blocking sessions and optimize the index on the queried table (e.g., order_id)."
+    },
+    {
+        "case_id": "CASE-002",
+        "title": "Service Unavailable due to Memory Leak in Image Processor",
+        "root_cause": "Memory Leak",
+        "symptom": "High Error Rate",
+        "metrics": "error_rate > 50%, memory_usage > 90%",
+        "solution": "Restart the affected service instance immediately to restore availability. Investigate memory profile and patch the leak in the image processing module."
+    },
+    {
+        "case_id": "CASE-003",
+        "title": "Timeout in Payment Gateway due to Network Congestion",
+        "root_cause": "Network Congestion",
+        "symptom": "Timeout",
+        "metrics": "timeout_rate > 10%",
+        "solution": "Scale up network bandwidth or increase connection pool size. Implement a retry mechanism with exponential backoff for payment requests."
+    },
+    {
+        "case_id": "CASE-004",
+        "title": "CPU Spike caused by Infinite Loop in Calculation Service",
+        "root_cause": "Infinite Loop",
+        "symptom": "High CPU Usage",
+        "metrics": "cpu_usage > 95%",
+        "solution": "Rollback the recent deployment of the calculation service. Fix the termination condition in the calculation loop logic."
+    }
+]

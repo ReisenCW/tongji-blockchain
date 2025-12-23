@@ -21,6 +21,7 @@ class TransactionType:
     TRANSFER = "transfer"
     STAKE = "stake"
     SLASH = "slash"
+    REWARD = "reward"
 
 
 class Blockchain:
@@ -30,7 +31,10 @@ class Blockchain:
         self.pending_transactions: List[Transaction] = []
         self.chain: List[Block] = []
         self.gas_price = 1  # 每单位Gas的价格
-        self.min_gas_limit = 5000  # 最小Gas限制（调整以支持投票交易）
+        self.min_gas_limit = 200  # 最小Gas限制（盈利友好：降低交易成本）
+        self._treasury_address: Optional[str] = None
+        self._treasury_private_key: Optional[SigningKey] = None
+        self.agent_addresses = set()  # 核心Agent地址集合
         # 创建创世区块
         self._create_genesis_block()
 
@@ -59,6 +63,30 @@ class Blockchain:
         block_json = json.dumps(
             block_dict, sort_keys=True, separators=(',', ':'))
         return calculate_hash(block_json)
+    
+    def _get_treasury_account(self):
+        """选择系统金库账户（当前实现：选择余额最高的非Agent账户）"""
+        if not world_state.state:
+            return None
+        # 缓存地址提高性能
+        if self._treasury_address and self._treasury_address in world_state.state:
+            # 确保缓存的地址不是Agent地址
+            if self._treasury_address not in self.agent_addresses:
+                return world_state.get_account(self._treasury_address)
+            else:
+                self._treasury_address = None # 清除无效缓存
+        
+        # 选择余额最高的非Agent账户作为金库
+        max_acc = None
+        for acc in world_state.state.values():
+            if acc.address in self.agent_addresses:
+                continue
+            if max_acc is None or (acc.balance or 0) > (max_acc.balance or 0):
+                max_acc = acc
+        
+        if max_acc:
+            self._treasury_address = max_acc.address
+        return max_acc
 
     def add_transaction(self, tx: Transaction) -> bool:
         """
@@ -76,17 +104,19 @@ class Blockchain:
             print(f"Invalid nonce. Expected {account.nonce}, got {tx.nonce}")
             return False
 
-        # 3. 检查Gas限制
-        if tx.gas_limit < self.min_gas_limit:
-            print(f"Gas limit too low. Minimum is {self.min_gas_limit}")
-            return False
+        # 3. 检查Gas限制（奖励交易免校验）
+        if tx.tx_type != TransactionType.REWARD:
+            if tx.gas_limit < self.min_gas_limit:
+                print(f"Gas limit too low. Minimum is {self.min_gas_limit}")
+                return False
 
-        # 4. 检查发送者余额
-        required_gas = tx.gas_price * tx.gas_limit
-        if account and account.balance < required_gas:
-            print(
-                f"Insufficient balance. Required {required_gas}, available {account.balance}")
-            return False
+        # 4. 检查发送者余额（奖励交易免Gas）
+        if tx.tx_type != TransactionType.REWARD:
+            required_gas = tx.gas_price * tx.gas_limit
+            if account and account.balance < required_gas:
+                print(
+                    f"Insufficient balance. Required {required_gas}, available {account.balance}")
+                return False
 
         # 交易验证通过，加入待打包交易池
         self.pending_transactions.append(tx)
@@ -124,28 +154,43 @@ class Blockchain:
         # 调用StateProcessor执行交易
         successful_transactions = []
         for tx in transactions_to_mine:
-            # 执行交易前先扣除Gas费用
+            # 执行交易前先扣除Gas费用（奖励交易免Gas）
             gas_fee = tx.gas_price * tx.gas_limit
             account = world_state.get_account(tx.sender)
             if not account:
                 account = world_state.create_account(tx.sender)
 
-            if account.balance >= gas_fee:
+            if tx.tx_type == TransactionType.REWARD:
+                # 奖励交易不扣Gas
+                pass
+            elif account.balance >= gas_fee:
                 account.balance -= gas_fee
                 world_state.update_account(account)
-
-                # 调用StateProcessor应用交易
-                if state_processor.apply_transaction(tx):
-                    successful_transactions.append(tx)
-                    # 增加nonce
-                    world_state.increment_nonce(tx.sender)
-                else:
-                    print(f"Failed to apply transaction: {tx.tx_type}")
-                    # 退还Gas费用
-                    account.balance += gas_fee
-                    world_state.update_account(account)
+                # 将Gas费用计入系统金库
+                treasury = self._get_treasury_account()
+                if treasury:
+                    treasury.balance = (treasury.balance or 0) + gas_fee
+                    world_state.update_account(treasury)
             else:
                 print(f"Insufficient balance for gas fee: {tx.sender}")
+                
+
+            # 调用StateProcessor应用交易
+            if state_processor.apply_transaction(tx):
+                successful_transactions.append(tx)
+                # 增加nonce
+                world_state.increment_nonce(tx.sender)
+            else:
+                print(f"Failed to apply transaction: {tx.tx_type}")
+                # 退还Gas费用（非奖励交易）
+                if tx.tx_type != TransactionType.REWARD:
+                    account.balance += gas_fee
+                    world_state.update_account(account)
+                    # 从金库扣回已记账的Gas
+                    treasury = self._get_treasury_account()
+                    if treasury and (treasury.balance or 0) >= gas_fee:
+                        treasury.balance -= gas_fee
+                        world_state.update_account(treasury)
 
         # 更新区块的交易列表为成功执行的交易
         new_block.transactions = successful_transactions

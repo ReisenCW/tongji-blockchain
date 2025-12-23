@@ -4,7 +4,7 @@ const API_BASE_URL = '/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000, // 5 minutes timeout for long-running agent analysis
   headers: {
     'Cache-Control': 'no-cache',
     'Pragma': 'no-cache',
@@ -87,8 +87,18 @@ export const blockchainAPI = {
     return response.data
   },
 
+  runAgents: async () => {
+    const response = await api.post('/run-agents')
+    return response.data
+  },
+
   resetData: async () => {
     const response = await api.post('/reset')
+    return response.data
+  },
+  
+  getEconomyOverview: async () => {
+    const response = await api.get('/economy/overview')
     return response.data
   },
 }

@@ -5,7 +5,11 @@ import os
 class MetricExplorer:
     def __init__(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        stats_file = os.path.join(script_dir, '..', 'data', 'metric', 'endpoints_stat.json')
+        # Point to project_root/data/topology/endpoints_stat.json
+        # script_dir = mABC/handle
+        # .. = mABC
+        # ../.. = project_root
+        stats_file = os.path.join(script_dir, '..', '..', 'data', 'topology', 'endpoints_stat.json')
         self.aggregated_stats = self.load_data(stats_file)
 
     def load_data(self, filename):
