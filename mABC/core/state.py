@@ -170,6 +170,10 @@ class StateProcessor:
                 return self._apply_stake(tx)
             elif tx.tx_type == "slash":
                 return self._apply_slash(tx)
+            elif tx.tx_type == "reward":
+                return self._apply_reward(tx)
+            elif tx.tx_type == "penalty":
+                return self._apply_penalty(tx)
             else:
                 print(f"Unknown transaction type: {tx.tx_type}")
                 return False
@@ -249,6 +253,25 @@ class StateProcessor:
             return token_contract.slash(tx.data, tx.sender)
         except Exception as e:
             print(f"Failed to apply slash transaction: {e}")
+            return False
+
+    def _apply_reward(self, tx: 'Transaction') -> bool:
+        """应用奖励交易"""
+        try:
+            from contracts.token_contract import TokenContract
+            token_contract = TokenContract(self.world_state)
+            return token_contract.reward(tx.data, tx.sender)
+        except Exception as e:
+            print(f"Failed to apply reward transaction: {e}")
+            return False
+    
+    def _apply_penalty(self, tx: 'Transaction') -> bool:
+        try:
+            from contracts.token_contract import TokenContract
+            token_contract = TokenContract(self.world_state)
+            return token_contract.penalty(tx.data, tx.sender)
+        except Exception as e:
+            print(f"Failed to apply penalty transaction: {e}")
             return False
 
 

@@ -1,8 +1,11 @@
 import json
+import os
 
-cases_file = "historical_cases.json"  # File containing historical cases
+# Point to project_root/data/historical_cases.json
+script_dir = os.path.dirname(os.path.abspath(__file__))
+CASES_FILE = os.path.join(script_dir, '..', '..', '..', 'data', 'historical_cases.json')
 
-def query_previous_cases(self, search_criteria):
+def query_previous_cases(search_criteria):
     """
     Query previous cases based on the provided search criteria.
     
@@ -16,22 +19,22 @@ def query_previous_cases(self, search_criteria):
     try:
         # Read historical cases from the file
         # 从文件中读取历史案例
-        with open(self.cases_file, 'r') as file:
+        with open(CASES_FILE, 'r') as file:
             historical_cases = json.load(file)
         
         # Search for cases that match the criteria
         # 搜索符合条件的案例
         for case in historical_cases:
-            if self._matches_criteria(case, search_criteria):
+            if _matches_criteria(case, search_criteria):
                 matching_cases.append(case)
     except FileNotFoundError:
-        print(f"File {self.cases_file} not found.")
+        print(f"File {CASES_FILE} not found.")
     except json.JSONDecodeError:
-        print(f"Error decoding JSON from file {self.cases_file}.")
+        print(f"Error decoding JSON from file {CASES_FILE}.")
     
     return matching_cases
 
-def _matches_criteria(self, case, search_criteria):
+def _matches_criteria(case, search_criteria):
     """
     Check if a case matches the provided search criteria.
     

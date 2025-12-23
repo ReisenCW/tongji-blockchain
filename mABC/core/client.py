@@ -49,7 +49,7 @@ class ChainClient:
         """
         return self.blockchain.mine_block()
     
-    def send_and_mine(self, tx: Transaction) -> bool:
+    def send_and_mine(self, tx: Transaction, silent: bool = False) -> bool:
         """
         发送交易并立即触发出块（适用于测试/开发环境）
         
@@ -61,16 +61,18 @@ class ChainClient:
         """
         # 1. 提交交易到交易池
         if not self.send_transaction(tx):
-            print(f"❌ 交易提交失败: {tx.tx_type}")
+            if not silent:
+                print(f"❌ 交易提交失败: {tx.tx_type}")
             return False
         
         # 2. 立即触发出块
         block = self.mine_block()
         if block is None:
-            print("❌ 出块失败")
+            if not silent:
+                print("❌ 出块失败")
             return False
-        
-        print(f"✅ 交易已上链: Block #{block.header.index}, TX: {tx.tx_type}")
+        if not silent:
+            print(f"✅ 交易已上链: Block #{block.header.index}, TX: {tx.tx_type}")
         return True
     
     def get_account(self, address: str):
@@ -185,7 +187,7 @@ class ChainClient:
                           data: Dict[str, Any],
                           private_key: SigningKey,
                           gas_price: int = 1,
-                          gas_limit: int = 5000) -> Transaction:
+                          gas_limit: int = 200) -> Transaction:
         """
         创建并签名一个交易
         

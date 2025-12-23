@@ -5,11 +5,14 @@ DAO化的Agent执行器
 
 import time
 from typing import List, Dict, Any
-from ecdsa import SigningKey
+from ecdsa import SigningKey, SECP256k1
 
 from .run import BaseRun
 from agents.base.profile import AgentWorkflow
 from core.client import ChainClient
+from core.blockchain import PublicKeyRegistry
+from core.types import generate_address
+from core.state import world_state
 
 
 class DAOExecutor(BaseRun):
@@ -17,6 +20,10 @@ class DAOExecutor(BaseRun):
     DAO化的Agent执行器，替代 ThreeHotCotRun
     所有投票决策都通过区块链交易执行
     """
+    class TreasuryAccount:
+        def __init__(self, wallet_address: str, private_key: SigningKey):
+            self.wallet_address = wallet_address
+            self.private_key = private_key
     
     def __init__(self, blockchain, alpha: float = 0.5, beta: float = 0.5):
         """
@@ -35,7 +42,7 @@ class DAOExecutor(BaseRun):
         self.proposal_counter = 0  # 提案ID计数器
     
     def run(self, agents: List[AgentWorkflow], poll_role: str, 
-            poll_problem: str, poll_content: str) -> bool:
+            poll_problem: str, poll_content: str, proposal_id: str = None) -> bool:
         """
         执行DAO投票流程（保持与ThreeHotCotRun相同的接口）
         
@@ -44,6 +51,7 @@ class DAOExecutor(BaseRun):
             poll_role: 提案发起者的角色名
             poll_problem: 投票的问题
             poll_content: 问题的详细内容
+            proposal_id: 外部指定的提案ID（可选）
         
         Returns:
             bool: 提案是否通过
@@ -52,9 +60,10 @@ class DAOExecutor(BaseRun):
         if self.alpha == -1 and self.beta == -1:
             return True
         
-        # 生成提案ID
-        proposal_id = f"proposal_{self.proposal_counter}_{int(time.time())}"
-        self.proposal_counter += 1
+        # 生成提案ID (如果未提供)
+        if proposal_id is None:
+            proposal_id = f"proposal_{self.proposal_counter}_{int(time.time())}"
+            self.proposal_counter += 1
         
         print(f"\n{'='*60}")
         print(f"🗳️  发起DAO投票")
@@ -67,7 +76,37 @@ class DAOExecutor(BaseRun):
         poll_initiator = None
         poll_reason = ""
         
+        # 更新所有Agent的链上状态和权重
+        print(f"🔄 同步Agent链上状态...")
         for agent in agents:
+            try:
+                account = self.chain_client.get_account(agent.wallet_address)
+                if account:
+                    # 计算动态权重
+                    # 基础权重: 1.0
+                    # 信誉加成: (信誉值 - 50) / 10.0 (例如: 80分 -> +3.0权重)
+                    # 质押加成: 质押量 / 1000.0 (例如: 1000 Token -> +1.0权重)
+                    reputation_bonus = max(0, (account.reputation - 50) / 10.0)
+                    stake_bonus = account.stake / 1000.0
+                    
+                    agent.weight = 1.0 + reputation_bonus + stake_bonus
+                    
+                    # 同步其他属性用于显示
+                    if hasattr(agent, 'reputation'):
+                        agent.reputation = account.reputation
+                    if hasattr(agent, 'balance'):
+                        agent.balance = account.balance
+                        
+                    print(f"  - {agent.role_name}: 权重={agent.weight:.2f} (信誉={account.reputation}, 质押={account.stake})")
+                else:
+                    agent.weight = 1.0
+                    print(f"  - {agent.role_name}: 账户未找到，使用默认权重 1.0")
+            except Exception as e:
+                print(f"  - {agent.role_name}: 状态同步失败 ({e})，使用当前权重 {getattr(agent, 'weight', 1.0)}")
+
+        for agent in agents:
+            if "Alert Receiver" in getattr(agent, "role_name", ""):
+                continue
             # 让每个Agent判断是否要发起投票挑战
             poll_result = self.poll(agent, poll_role, poll_problem, poll_content)
             if poll_result['poll'] == "Yes":
@@ -77,18 +116,45 @@ class DAOExecutor(BaseRun):
                 print(f"理由: {poll_reason}\n")
                 break
         
-        # 如果没人发起投票，默认通过
+        # 如果没人发起投票，仍然进入投票流程（自动发起）
         if poll_initiator is None:
-            print("✅ 无人发起投票，提案默认通过\n")
-            return True
+            poll_initiator = poll_role
+            poll_reason = "Auto-started voting due to no challenge"
+            print("ℹ️ 无人发起挑战，系统自动发起投票以记录决策与发放激励\n")
         
         # 第二步：所有Agent进行链上投票
         print(f"📊 开始链上投票流程...\n")
         
+        # 在投票前进行“自动质押”，质押目标基于信誉分并设定上限避免余额被快速消耗
+        print(f"🔒 执行自动质押策略以提升高信誉Agent的影响力")
+        for agent in agents:
+            if "Alert Receiver" in getattr(agent, "role_name", ""):
+                continue
+            try:
+                account = self.chain_client.get_account(agent.wallet_address)
+                if not account:
+                    continue
+                confidence = max(0.0, min(1.0, (account.reputation or 0) / 100.0))
+                if confidence >= 0.8:
+                    target_stake = min(200, int(account.balance * 0.05))
+                elif confidence >= 0.6:
+                    target_stake = min(100, int(account.balance * 0.02))
+                else:
+                    target_stake = 0
+                stake_delta = max(0, target_stake - (account.stake or 0))
+                if stake_delta > 0:
+                    st_ok = self._stake_tokens(agent, stake_delta)
+                    print(f"  - {agent.role_name}: 自动质押 {stake_delta} (信誉={account.reputation}, 余额={account.balance}) => {('✅ 成功' if st_ok else '❌ 失败')}")
+            except Exception as e:
+                print(f"  - {agent.role_name}: 自动质押异常 ({e})")
+        
         total_weight = 0
         vote_weights = {"For": 0, "Against": 0, "Abstain": 0}
+        vote_records: List[Dict[str, Any]] = []
         
         for agent in agents:
+            if "Alert Receiver" in getattr(agent, "role_name", ""):
+                continue
             # 获取Agent的投票选项
             vote_option = self.submit_vote(agent, poll_initiator, poll_reason, 
                                           poll_role, poll_problem, poll_content)
@@ -99,10 +165,25 @@ class DAOExecutor(BaseRun):
             )
             
             if success:
+                # 质押后刷新最新权重（信誉+质押）
+                try:
+                    acc_now = self.chain_client.get_account(agent.wallet_address)
+                    if acc_now:
+                        reputation_bonus = max(0, (acc_now.reputation - 50) / 10.0)
+                        stake_bonus = acc_now.stake / 1000.0
+                        agent.weight = 1.0 + reputation_bonus + stake_bonus
+                except Exception:
+                    pass
                 # 计算投票权重（基于Agent的weight属性）
                 weight = agent.weight if hasattr(agent, 'weight') else 1.0
                 vote_weights[vote_option] += weight
                 total_weight += weight
+                vote_records.append({
+                    "address": agent.wallet_address,
+                    "role": agent.role_name,
+                    "option": vote_option,
+                    "weight": weight
+                })
                 
                 print(f"  {agent.role_name}: {vote_option} (权重: {weight:.2f})")
         
@@ -126,10 +207,131 @@ class DAOExecutor(BaseRun):
         
         if run_result:
             print(f"\n✅ 提案通过！\n")
+            # 触发奖励机制
+            self.distribute_rewards(agents, poll_initiator, vote_weights, proposal_id, vote_records)
         else:
             print(f"\n❌ 提案被否决！\n")
+            # 触发惩罚机制
+            self.distribute_penalties(agents, poll_initiator, vote_weights, proposal_id, vote_records)
         
         return run_result
+
+    def distribute_rewards(self, agents: List[AgentWorkflow], proposer_role: str, vote_weights: Dict[str, float], proposal_id: str, vote_records: List[Dict[str, Any]]):
+        """
+        分发奖励
+        
+        奖励规则:
+        1. 提案人 (Proposer): +100 Token, +5 Reputation
+        2. 支持者 (Voters for 'For'): +10 Token, +1 Reputation
+        
+        Args:
+            agents: 所有Agent列表
+            proposer_role: 提案人角色名
+            vote_weights: 投票权重统计
+            proposal_id: 提案ID
+        """
+        print(f"\n🎁 开始分发奖励...")
+        treasury = self._get_or_create_treasury_account()
+        
+        # 2. 奖励提案人
+        proposer = next((a for a in agents if a.role_name == proposer_role), None)
+        if proposer:
+            self._send_reward(treasury, proposer.wallet_address, 800, 5, f"Proposal Passed: {proposal_id}")
+            print(f"  - 提案人 {proposer.role_name}: +800 Token, +5 Reputation")
+            
+        # 3. 奖励支持者（仅对投票为 'For' 的地址发放）
+        supporters = [rec for rec in (vote_records or []) if rec.get("option") == "For"]
+        for rec in supporters:
+            self._send_reward(treasury, rec["address"], 300, 1, f"Voting Support: {proposal_id}")
+            print(f"  - 支持者 {rec['role']}: +300 Token, +1 Reputation (W={rec['weight']:.2f})")
+        
+        # 4. 通过返还支持者的投票Gas 70%
+        rebate_ratio = 0.7
+        vote_gas_limit = 200
+        vote_gas_price = 1
+        rebate_amount = int(rebate_ratio * vote_gas_limit * vote_gas_price)
+        supporters = [rec for rec in (vote_records or []) if rec.get("option") == "For"]
+        for rec in supporters:
+            self._send_reward(treasury, rec["address"], rebate_amount, 0, f"Gas Rebate (70%): {proposal_id}")
+            print(f"  - 支持者 {rec['role']}: 返还Gas {rebate_amount}")
+        
+        # 5. 成果赏金基础额发放（给提案人）
+        bounty_base = 1000
+        if proposer:
+            self._send_reward(treasury, proposer.wallet_address, bounty_base, 0, f"Bounty: {proposal_id}")
+            print(f"  - 提案人 {proposer.role_name}: 赏金 +{bounty_base} Token")
+        
+        # 6. 通过时惩罚反对者：小额罚没 + 信誉下降
+        opponents = [rec for rec in (vote_records or []) if rec.get("option") == "Against"]
+        for rec in opponents:
+            self._send_penalty(treasury, rec["address"], 50, -1, f"Against Passed: {proposal_id}")
+
+    def _send_reward(self, admin_agent: AgentWorkflow, target_address: str, amount: int, reputation: int, memo: str):
+        """发送奖励交易"""
+        try:
+            tx = self.chain_client.create_transaction(
+                tx_type="reward",
+                sender=admin_agent.wallet_address,
+                data={
+                    "target": target_address,
+                    "amount": amount,
+                    "reputation": reputation,
+                    "memo": memo
+                },
+                private_key=admin_agent.private_key,
+                gas_limit=200
+            )
+            success = self.chain_client.send_and_mine(tx, silent=True)
+            block = self.chain_client.get_latest_block() if success else None
+            block_index = block.header.index if block else "-"
+            short_addr = f"{target_address[:6]}...{target_address[-4:]}"
+            print(f"奖励发送: to={short_addr}, token={amount}, rep={reputation}, success={success}, onchain_block={block_index}")
+        except Exception as e:
+            short_addr = f"{target_address[:6]}...{target_address[-4:]}"
+            print(f"奖励发送: to={short_addr}, token={amount}, rep={reputation}, success=False, onchain_block=-, error={e}")
+    
+    def _send_penalty(self, admin_agent: AgentWorkflow, target_address: str, amount: int, reputation: int, memo: str):
+        try:
+            tx = self.chain_client.create_transaction(
+                tx_type="penalty",
+                sender=admin_agent.wallet_address,
+                data={
+                    "target": target_address,
+                    "amount": amount,
+                    "reputation": reputation,
+                    "memo": memo
+                },
+                private_key=admin_agent.private_key,
+                gas_limit=200
+            )
+            self.chain_client.send_and_mine(tx, silent=True)
+        except Exception:
+            pass
+    
+    def _get_or_create_treasury_account(self):
+        if hasattr(self, "_treasury") and self._treasury:
+            return self._treasury
+        addr = getattr(self.blockchain, "_treasury_address", None)
+        pk = getattr(self.blockchain, "_treasury_private_key", None)
+        if addr and pk and world_state.get_account(addr):
+            self._treasury = DAOExecutor.TreasuryAccount(addr, pk)
+            return self._treasury
+        sk = SigningKey.generate(curve=SECP256k1)
+        vk = sk.get_verifying_key()
+        addr = generate_address(vk.to_string())
+        PublicKeyRegistry.register_public_key(addr, vk.to_string().hex())
+        acc = world_state.get_account(addr) or world_state.create_account(addr)
+        if acc.balance is None or acc.balance < 200000:
+            acc.balance = 200000
+        if acc.reputation is None or acc.reputation < 80:
+            acc.reputation = 80
+        if acc.stake is None:
+            acc.stake = 0
+        world_state.update_account(acc)
+        setattr(self.blockchain, "_treasury_address", addr)
+        setattr(self.blockchain, "_treasury_private_key", sk)
+        self._treasury = DAOExecutor.TreasuryAccount(addr, sk)
+        return self._treasury
     
     def _create_and_submit_vote_transaction(self, agent: AgentWorkflow, 
                                            proposal_id: str, vote_option: str) -> bool:
@@ -155,7 +357,7 @@ class DAOExecutor(BaseRun):
                     "vote_option": vote_option
                 },
                 private_key=agent.private_key,
-                gas_limit=5000  # 投票交易Gas费用: 5000 * 1 = 5000 Token
+                gas_limit=200
             )
             
             # 提交交易并出块
@@ -164,6 +366,15 @@ class DAOExecutor(BaseRun):
         except Exception as e:
             print(f"❌ 创建投票交易失败: {e}")
             return False
+
+    def distribute_penalties(self, agents: List[AgentWorkflow], proposer_role: str, vote_weights: Dict[str, float], proposal_id: str, vote_records: List[Dict[str, Any]]):
+        treasury = self._get_or_create_treasury_account()
+        proposer = next((a for a in agents if a.role_name == proposer_role), None)
+        if proposer:
+            self._send_penalty(treasury, proposer.wallet_address, 300, -5, f"Proposal Failed: {proposal_id}")
+        supporters = [rec for rec in (vote_records or []) if rec.get("option") == "For"]
+        for rec in supporters:
+            self._send_penalty(treasury, rec["address"], 100, -1, f"Support Failed: {proposal_id}")
     
     def _sign_transaction(self, tx, private_key: SigningKey) -> str:
         """
@@ -326,7 +537,8 @@ class DAOExecutor(BaseRun):
                 tx_type="stake",
                 sender=agent.wallet_address,
                 data={"amount": amount},
-                private_key=agent.private_key
+                private_key=agent.private_key,
+                gas_limit=200
             )
             
             # 上链执行

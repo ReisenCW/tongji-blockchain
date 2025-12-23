@@ -1,19 +1,34 @@
 import os
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
 
 FLASH_API = os.getenv("BIG_MODEL_API_KEY")
+if not FLASH_API:
+    # 如果环境变量未设置，尝试使用默认值（仅用于测试，建议使用环境变量）
+    FLASH_API = "ec0880d68fcd45ae90f6c1436b2eed8b.fUCwsGAGSaN2QUOS"
 FLASH_URL = "https://open.bigmodel.cn/api/paas/v4/"
 # DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 # DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DASHSCOPE_API_KEY = FLASH_API
 DASHSCOPE_BASE_URL = FLASH_URL
 
-OPENAI_MAX_RETRIES = 10
-OPENAI_RETRY_SLEEP = 30
+OPENAI_MAX_RETRIES = 3
+OPENAI_RETRY_SLEEP = 3
 # OPENAI_MODEL = "gpt-3.5-turbo"
 # OPENAI_MODEL = "gpt-4"
 # OPENAI_MODEL = "qwen-turbo"
 # OPENAI_MODEL = "qwen-plus"
 OPENAI_MODEL = "glm-4.6v-flash"
+
+# LLM 请求超时（秒）
+OPENAI_REQUEST_TIMEOUT = 15
+
+# ReAct 运行的墙钟时间上限（秒）
+# 针对不同 Agent 设置合理的上限，防止第二阶段长时间卡住
+REACT_PROCESS_SCHEDULER_MAX_SECONDS = 30
+REACT_DEFAULT_MAX_SECONDS = 12
 
 # AGENT_STATUS_START = "Start"
 # AGENT_STATUS_RE = "Reason"

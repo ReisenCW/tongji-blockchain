@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 
 class TraceExplorer:
     def __init__(self):
+        # base_dir = mABC
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        files = os.path.join(base_dir, 'data', 'topology', 'endpoint_maps.json')
+        # Point to project_root/data/topology/endpoint_maps.json
+        files = os.path.join(base_dir, '..', 'data', 'topology', 'endpoint_maps.json')
         self.endpoint_maps = self.load_data(files)
 
     def load_data(self, filename):

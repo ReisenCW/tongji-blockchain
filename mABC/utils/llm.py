@@ -1,4 +1,4 @@
-from settings import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, OPENAI_MAX_RETRIES, OPENAI_RETRY_SLEEP, OPENAI_MODEL
+from settings import DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, OPENAI_MAX_RETRIES, OPENAI_RETRY_SLEEP, OPENAI_MODEL, OPENAI_REQUEST_TIMEOUT
 from openai import OpenAI
 import time
 
@@ -35,8 +35,9 @@ def llm_chat(shared_messages, stop_words, temperature=0.3):
                 messages=shared_messages,
                 stop=stop,
                 temperature=temperature,  # 添加 temperature 参数，默认 0.3 使 Agent 更加谨慎
+                timeout=OPENAI_REQUEST_TIMEOUT,
             )
-            print(completion)
+            # print(completion)
             return completion.choices[0].message.content
         except Exception as e:
             print(e)

@@ -1,4 +1,6 @@
 from random import uniform
+import time
+from settings import REACT_PROCESS_SCHEDULER_MAX_SECONDS, REACT_DEFAULT_MAX_SECONDS
 from utils.llm import llm_chat
 from utils.generate_tools import get_agent_tool_list_prompt
 from utils.act_eval import act_eval
@@ -45,7 +47,7 @@ class ThreeHotCotRun(BaseRun):
         self.w_e_max = 1.5      # 最大专业指数
         self.delta = 0.03       # 贡献指数的最大衰减率
 
-    def run(self, agents, poll_role, poll_problem, poll_content):
+    def run(self, agents, poll_role, poll_problem, poll_content, proposal_id=None):
         poll_initiator = ""
         poll_reason = ""
         total_weight = sum(agent.weight for agent in agents)
@@ -199,7 +201,7 @@ class ReActTotRun(BaseRun):
         
         return history
 
-    def run(self, agent: AgentWorkflow, question: str, agent_tool_env, eval_run, agents, history="", index=0):
+    def run(self, agent: AgentWorkflow, question: str, agent_tool_env, eval_run, agents, history="", index=0, sop_contract=None):
         # 获取历史记录, 如果没有则初始化
         history = f"Question: {question}" if history == "" else history
         
@@ -207,23 +209,23 @@ class ReActTotRun(BaseRun):
         history = self.check_and_summarize(history, question)
 
         # 进行多轮采样下一步
-        step_status_record_list = self.sample_multi_next_step(agent, question, agent_tool_env, eval_run, agents, history)
+        step_status_record_list = self.sample_multi_next_step(agent, question, agent_tool_env, eval_run, agents, history, sop_contract=sop_contract)
         # 选择最佳步骤记录
         index = 0
         best_step_status_record = step_status_record_list[index]
         history = history + best_step_status_record["record"]
         # 如果没有完成, 则继续下一轮
         if best_step_status_record["status"] != REACT_STATUS_FINISH:
-            return self.run(agent, question, agent_tool_env, eval_run, agents, history, index + 1)
+            return self.run(agent, question, agent_tool_env, eval_run, agents, history, index + 1, sop_contract=sop_contract)
         else:
             # return history.split("Final Answer:")[1].strip()
             return history
 
     # 多轮采样下一步
-    def sample_multi_next_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run, agents, history="", num=TOT_CHILDREN_NUM):
+    def sample_multi_next_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run, agents, history="", num=TOT_CHILDREN_NUM, sop_contract=None):
         step_status_record_list = []
         for _ in range(num):
-            status, step_record = self.eval_and_run_one_step(agent, question, agent_tool_env, eval_run, agents, history)
+            status, step_record = self.eval_and_run_one_step(agent, question, agent_tool_env, eval_run, agents, history, sop_contract=sop_contract)
             step_status_record_list.append(
                 {
                     "status": status,
@@ -232,20 +234,49 @@ class ReActTotRun(BaseRun):
             )
         return step_status_record_list
     
-    def eval_and_run_one_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run: ThreeHotCotRun, agents, history=""):
+    def eval_and_run_one_step(self, agent: AgentWorkflow, question, agent_tool_env, eval_run: ThreeHotCotRun, agents, history="", sop_contract=None):
         status, step_record = self.run_one_step(agent, question, agent_tool_env, history)
         
         # 只在得出最终答案时才触发投票验证，中间步骤不投票
         if status == REACT_STATUS_FINISH:
+            
+            # 【SOP 状态机推进】：Root_Cause_Proposed
+            current_proposal_id = None
+            if sop_contract:
+                try:
+                    # 提取最终答案作为提案内容
+                    final_answer = step_record.split("Final Answer:")[1].strip() if "Final Answer:" in step_record else "No Answer"
+                    proposal_result = sop_contract.propose_root_cause(
+                        agent_id=agent.wallet_address,
+                        content=final_answer
+                    )
+                    current_proposal_id = proposal_result["proposal_id"]
+                    print(f"📜 SOP Update: Root Cause Proposed by {agent.role_name} (ID: {current_proposal_id})")
+                except Exception as e:
+                    print(f"⚠️ SOP Update Failed (Propose): {e}")
+ 
             # 启用投票验证机制 - 仅对最终答案投票
-            result = eval_run.run(agents, agent.role_name, question, history + step_record)
+            result = eval_run.run(agents, agent.role_name, question, history + step_record, proposal_id=current_proposal_id)
+            
+            # 【SOP 状态机推进】：Consensus -> Solution
+            if sop_contract and current_proposal_id:
+                try:
+                    sop_contract.advance_to_consensus_phase(
+                        proposal_id=current_proposal_id,
+                        passed=result
+                    )
+                    state = "Solution" if result else "Data_Collected"
+                    print(f"📜 SOP Update: Consensus Reached? {result} -> State: {state}")
+                except Exception as e:
+                    print(f"⚠️ SOP Update Failed (Consensus): {e}")
+
             # 如果投票结果为True，代表最终答案通过
             if result:
                 return status, step_record
             # 否则，重新执行整个流程
             else:
-                print("❌ 最终答案未通过投票，重新分析...")
-                return self.eval_and_run_one_step(agent, question, agent_tool_env, eval_run, agents, history)
+                print("❌ 最终答案未通过投票，结束本轮分析")
+                return status, step_record
         else:
             # 中间步骤（Action/Thought）直接通过，不触发投票
             return status, step_record
@@ -262,12 +293,14 @@ class ReActTotRun(BaseRun):
         consecutive_no_data = 0  # 追踪连续获得无数据结果的次数
         previous_action = None  # 追踪上一个执行的动作
         
-        # 根据Agent类型设置不同的最大循环次数
-        # ProcessScheduler需要更多步骤（查询多个端点+分析）
+        # 根据Agent类型设置不同的最大循环次数与墙钟时间上限
         if "Process Scheduler" in agent.role_name:
-            max_reason_loops = 15  # ProcessScheduler需要更多步骤
+            max_reason_loops = 8
+            max_wall_clock = REACT_PROCESS_SCHEDULER_MAX_SECONDS
         else:
-            max_reason_loops = 5   # 其他Agent保持5次
+            max_reason_loops = 5
+            max_wall_clock = REACT_DEFAULT_MAX_SECONDS
+        wall_clock_start = time.time()
         
         while status == REACT_STATUS_RE:
             reason_loop_count += 1
@@ -276,6 +309,14 @@ class ReActTotRun(BaseRun):
             if reason_loop_count > max_reason_loops:
                 print(f"❌ ERROR: Reason循环超过最大次数({max_reason_loops})，强制退出")
                 final_answer = "Unable to determine root cause after multiple reasoning steps."
+                step_record += f"\nFinal Answer: {final_answer}"
+                return REACT_STATUS_FINISH, step_record
+            
+            # 墙钟时间超时保护：防止长时间卡在第二阶段
+            elapsed = time.time() - wall_clock_start
+            if elapsed > max_wall_clock:
+                print(f"⏱️ TIMEOUT: 超过墙钟时间上限({max_wall_clock}s)，生成保底结论并结束")
+                final_answer = "Timeout while analyzing. Provide preliminary root cause based on available data."
                 step_record += f"\nFinal Answer: {final_answer}"
                 return REACT_STATUS_FINISH, step_record
             

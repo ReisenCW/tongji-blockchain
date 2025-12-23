@@ -13,7 +13,9 @@ function Dashboard() {
   const [proposal, setProposal] = useState(null)
   const [incident, setIncident] = useState(null)
   const [accounts, setAccounts] = useState([])
+  const [treasury, setTreasury] = useState([])
   const [voting, setVoting] = useState(null)
+  const [economy, setEconomy] = useState(null)
 
   const loadSop = async () => {
     try {
@@ -22,7 +24,7 @@ function Dashboard() {
       setSopState(data.current_state || 'Init')
       setProposal(data.current_proposal || null)
       setIncident(data.incident_data || null)
-      setEvents(data.events || [])
+      // setEvents(data.events || []) // Removed to avoid overwriting agent logs
     } catch (e) {
       console.error('SOP load failed:', e)
     }
@@ -32,6 +34,7 @@ function Dashboard() {
     try {
       const data = await blockchainAPI.getAgentsState()
       const rawAccounts = data.accounts || []
+      const rawTreasury = data.treasury || []
       // Sort by balance descending to determine rank
       const sortedAccounts = rawAccounts.sort((a, b) => b.balance - a.balance)
       // Add rank property
@@ -40,6 +43,7 @@ function Dashboard() {
         rank: index + 1
       }))
       setAccounts(rankedAccounts)
+      setTreasury(rawTreasury.sort((a, b) => (b.balance || 0) - (a.balance || 0)))
     } catch (e) {
       // message.error('经济数据加载失败')
     }
@@ -58,22 +62,35 @@ function Dashboard() {
     try {
       const data = await blockchainAPI.getEvents(100)
       setEvents(data || [])
+      await loadAccounts()
     } catch {}
   }
 
-  const handleGenerateData = async () => {
+  const loadEconomy = async () => {
     try {
-      message.loading({ content: '生成数据中...', key: 'gen' })
-      const res = await blockchainAPI.generateTestData()
+      const data = await blockchainAPI.getEconomyOverview()
+      setEconomy(data || null)
+    } catch {}
+  }
+
+  const handleRunAnalysis = async () => {
+    try {
+      message.loading({ content: '多智能体分析进行中...', key: 'gen', duration: 0 })
+      // 开始轮询事件，以便用户看到进度
+      const interval = setInterval(pollEvents, 1000)
+      
+      const res = await blockchainAPI.runAgents()
+      
+      clearInterval(interval)
       if (res.success) {
-        message.success({ content: '新区块生成成功！交易与状态已更新', key: 'gen' })
+        message.success({ content: '分析完成！共识已达成', key: 'gen' })
         loadAccounts()
         loadSop()
         loadVoting()
         pollEvents()
       }
     } catch (e) {
-      message.error({ content: '数据生成失败', key: 'gen' })
+      message.error({ content: '分析失败: ' + (e.response?.data?.detail || e.message), key: 'gen' })
     }
   }
 
@@ -99,13 +116,16 @@ function Dashboard() {
     loadSop()
     loadAccounts()
     loadVoting()
+    loadEconomy()
     const t1 = setInterval(loadSop, 5000)
     const t2 = setInterval(loadVoting, 5000)
-    const t3 = setInterval(pollEvents, 2000)
+    const t3 = setInterval(pollEvents, 1000)
+    const t4 = setInterval(loadEconomy, 5000)
     return () => {
       clearInterval(t1)
       clearInterval(t2)
       clearInterval(t3)
+      clearInterval(t4)
     }
   }, [])
 
@@ -170,7 +190,7 @@ function Dashboard() {
       ),
     },
     {
-      title: '资产 & 信誉',
+      title: '资产 & 质押',
       key: 'stats',
       render: (_, record) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -185,15 +205,19 @@ function Dashboard() {
             </span>
           </Space>
           <Tooltip title={`信誉分: ${record.reputation}`}>
-            <Progress 
-              percent={record.reputation} 
-              size={[100, 4]} 
-              showInfo={false}
-              strokeColor={{
-                '0%': '#ff4d4f',
-                '100%': '#52c41a',
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: '#8c8c8c' }}>信誉</span>
+              <Progress 
+                percent={record.reputation} 
+                size={[100, 4]} 
+                showInfo={false}
+                strokeColor={{
+                  '0%': '#ff4d4f',
+                  '100%': '#52c41a',
+                }}
+              />
+              <span style={{ fontSize: 11, color: '#8c8c8c' }}>{`${record.reputation}/100`}</span>
+            </div>
           </Tooltip>
         </div>
       ),
@@ -211,36 +235,83 @@ function Dashboard() {
       <Col span={6} style={{ height: '100%', overflow: 'auto' }}>
         <Card title="实时日志流" style={{ height: '100%' }} bodyStyle={{ padding: '0 12px' }}>
           <List
-            dataSource={[...(events || [])].reverse()}
-            renderItem={(item) => (
-              <List.Item style={{ padding: '12px 0' }}>
-                <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                  <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <Tag color="blue">{item.name}</Tag>
-                    <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                      {new Date(item.timestamp).toLocaleTimeString()}
-                    </Typography.Text>
-                  </Space>
-                  <div style={{ 
-                    fontSize: 12, 
-                    color: '#595959', 
-                    background: '#f5f5f5', 
-                    padding: 8, 
-                    borderRadius: 4,
-                    wordBreak: 'break-all'
-                  }}>
+            dataSource={[...(events || [])].filter(item => item.type === 'agent_log').reverse()}
+            rowKey="id"
+            renderItem={(item) => {
+              const isAgentLog = true // Filtered above, so always true
+              
+              let tagColor = 'blue'
+              let tagName = item.name
+              let content = null
+
+              if (isAgentLog) {
+                switch (item.log_type) {
+                  case 'thought':
+                    tagColor = 'purple'
+                    tagName = '思考'
+                    break
+                  case 'action':
+                    tagColor = 'orange'
+                    tagName = '执行'
+                    break
+                  case 'answer':
+                    tagColor = 'green'
+                    tagName = '结论'
+                    break
+                  case 'reward':
+                    tagColor = 'gold'
+                    tagName = '奖励'
+                    break
+                  default:
+                    tagColor = 'default'
+                    tagName = '日志'
+                }
+                content = (
+                  <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                    {item.content}
+                  </div>
+                )
+              } else {
+                // Contract Event
+                tagName = item.name
+                content = (
+                  <div style={{ wordBreak: 'break-all' }}>
                     {Object.entries(item).map(([k, v]) => {
                       if (['name', 'timestamp'].includes(k)) return null;
                       return (
                         <div key={k}>
-                          <span style={{ fontWeight: 500 }}>{k}:</span> {JSON.stringify(v)}
+                          <span style={{ fontWeight: 500 }}>{k}:</span> {
+                            typeof v === 'object' ? JSON.stringify(v) : v
+                          }
                         </div>
                       )
                     })}
                   </div>
-                </Space>
-              </List.Item>
-            )}
+                )
+              }
+
+              return (
+                <List.Item style={{ padding: '12px 0' }}>
+                  <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                    <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+                      <Tag color={tagColor}>{tagName}</Tag>
+                      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                        {new Date(item.timestamp).toLocaleTimeString()}
+                      </Typography.Text>
+                    </Space>
+                    <div style={{ 
+                      fontSize: 12, 
+                      color: '#595959', 
+                      background: '#f5f5f5', 
+                      padding: 8, 
+                      borderRadius: 4,
+                    }}>
+                      {content}
+                    </div>
+                  </Space>
+                </List.Item>
+              )
+            }}
           />
         </Card>
       </Col>
@@ -269,6 +340,16 @@ function Dashboard() {
           <Card title="投票博弈与决策路径" bodyStyle={{ padding: '12px 24px' }}>
             {voting && voting.active ? (
               <>
+                <div style={{ marginBottom: 12, padding: '8px', background: '#f9f9f9', borderRadius: 4 }}>
+                  <Typography.Text strong style={{ fontSize: 12 }}>提案内容：</Typography.Text>
+                  <Typography.Paragraph 
+                    ellipsis={{ rows: 2, expandable: true, symbol: '展开' }} 
+                    style={{ fontSize: 12, color: '#595959', margin: 0 }}
+                  >
+                    {voting.proposal?.content || '暂无内容'}
+                  </Typography.Paragraph>
+                </div>
+                
                 <Row gutter={16} align="middle">
                   <Col span={10}>
                     <div style={{ height: 140, position: 'relative' }}>
@@ -329,7 +410,7 @@ function Dashboard() {
                     header={
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#595959', fontWeight: 600 }}>
                         <span>Agent 决策者</span>
-                        <span>权重 (质押×信誉) & 态度</span>
+                        <span>权重 (信誉+质押) & 态度</span>
                       </div>
                     }
                     size="small"
@@ -373,27 +454,25 @@ function Dashboard() {
         </Space>
       </Col>
       <Col span={8} style={{ height: '100%', overflow: 'auto' }}>
-        <Card 
+          <Card 
           title="经济看板" 
           bodyStyle={{ padding: 0 }}
           extra={
             <Space>
               <Button 
-                type="link" 
-                size="small" 
-                danger
                 icon={<DeleteOutlined />} 
                 onClick={handleResetData}
+                size="large"
               >
-                重置
+                重置数据
               </Button>
               <Button 
-                type="link" 
-                size="small" 
+                type="primary" 
                 icon={<ThunderboltOutlined />} 
-                onClick={handleGenerateData}
+                onClick={handleRunAnalysis}
+                size="large"
               >
-                生成数据
+                开始诊断
               </Button>
             </Space>
           }
@@ -407,14 +486,73 @@ function Dashboard() {
             scroll={{ x: 'max-content' }}
           />
         </Card>
-        {incident && (
-          <Card title="故障现场快照" style={{ marginTop: 16 }} size="small">
-            <Typography.Paragraph 
-              ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
-              style={{ marginBottom: 0, fontFamily: 'monospace' }}
-            >
-              {JSON.stringify(incident, null, 2)}
-            </Typography.Paragraph>
+        {treasury && treasury.length > 0 && (
+          <Card title="系统金库" style={{ marginTop: 16 }} size="small">
+            <List
+              size="small"
+              dataSource={treasury}
+              renderItem={(item) => (
+                <List.Item>
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <Space>
+                      <Avatar 
+                        size={20}
+                        style={{ backgroundColor: `#${item.address.slice(2, 8)}`, fontSize: 10 }}
+                      >
+                        {item.address[0].toUpperCase()}
+                      </Avatar>
+                      <Typography.Text style={{ fontSize: 12 }} ellipsis={{ tooltip: item.address }}>
+                        {item.address.slice(0, 6)}...{item.address.slice(-4)}
+                      </Typography.Text>
+                    </Space>
+                    <Space split={<span style={{ color: '#d9d9d9' }}>|</span>} style={{ fontSize: 12 }}>
+                      <span title="余额">
+                        <BankOutlined style={{ color: '#1890ff', marginRight: 4 }} />
+                        <Typography.Text strong>{(item.balance || 0).toLocaleString()}</Typography.Text>
+                      </span>
+                      <span title="质押">
+                        <SafetyCertificateOutlined style={{ color: '#52c41a', marginRight: 4 }} />
+                        {(item.stake || 0).toLocaleString()}
+                      </span>
+                      <span title="信誉">
+                        <Progress percent={item.reputation || 0} size={[100, 4]} />
+                      </span>
+                    </Space>
+                  </Space>
+                </List.Item>
+              )}
+            />
+          </Card>
+        )}
+        {economy && (
+          <Card title="经济系统概览" style={{ marginTop: 16 }} size="small">
+            <List
+              size="small"
+              dataSource={[
+                { k: 'Agent 初始资金', v: `${economy.agent_initial_balance}` },
+                { k: 'Gas 价格 × 最小限额', v: `${economy.gas_price} × ${economy.min_gas_limit}` },
+                { k: '投票 Gas 限额', v: `${economy.vote_gas_limit}` },
+                { k: '奖励 Gas 限额', v: `${economy.reward_gas_limit}` },
+                { k: '奖励规则（提案人）', v: `+${economy.proposer_reward_token} Token, +${economy.proposer_reward_rep} Reputation` },
+                { k: '奖励规则（支持者）', v: `+${economy.supporter_reward_token} Token, +${economy.supporter_reward_rep} Reputation` },
+                { k: '通过返还（支持者）', v: `返还投票Gas ${Math.round((economy.pass_rebate_ratio || 0) * 100)}%` },
+                { k: '成果赏金（提案人）', v: `基础额 +${economy.bounty_base_token} Token` },
+                { k: '罚没（提案通过时反对者）', v: `-${economy.penalty_against_pass_token} Token, ${economy.penalty_against_pass_rep} Reputation` },
+                { k: '罚没（提案失败时支持者）', v: `-${economy.penalty_support_fail_token} Token, ${economy.penalty_support_fail_rep} Reputation` },
+                { k: '罚没（提案失败时提案人）', v: `-${economy.penalty_proposer_fail_token} Token, ${economy.penalty_proposer_fail_rep} Reputation` },
+                { k: '系统金库余额', v: `${(economy.treasury_balance || 0).toLocaleString()}` },
+                { k: '系统金库地址', v: `${economy.treasury_address ? economy.treasury_address.slice(0,6)+'...'+economy.treasury_address.slice(-4) : '-'}` },
+                { k: '核心 Agent 数量', v: `${economy.agent_count}` },
+              ]}
+              renderItem={(item) => (
+                <List.Item>
+                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <Typography.Text style={{ fontSize: 12, color: '#8c8c8c' }}>{item.k}</Typography.Text>
+                    <Typography.Text style={{ fontSize: 12 }} strong>{item.v}</Typography.Text>
+                  </Space>
+                </List.Item>
+              )}
+            />
           </Card>
         )}
       </Col>
