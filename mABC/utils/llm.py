@@ -19,12 +19,21 @@ def llm_chat(shared_messages, stop_words, temperature=0.3):
     Returns:
         LLM 生成的内容
     """
+    # Ensure stop_words is a list or None
+    stop = None
+    if stop_words:
+        if isinstance(stop_words, str):
+            stop = [stop_words]
+        elif isinstance(stop_words, list):
+            stop = stop_words
+        else:
+            stop = [str(stop_words)]
     for _ in range(OPENAI_MAX_RETRIES):
         try:
             completion = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=shared_messages,
-                stop=stop_words,
+                stop=stop,
                 temperature=temperature,  # 添加 temperature 参数，默认 0.3 使 Agent 更加谨慎
             )
             print(completion)

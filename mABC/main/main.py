@@ -2,7 +2,7 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ['OPENAI_API_KEY'] = 'sk-6c3edf31bf214509bac30a69957b302b'
+# os.environ['OPENAI_API_KEY'] = 'sk-6c3edf31bf214509bac30a69957b302b'
 
 # 确保工作目录是 mABC 目录
 script_dir = os.path.dirname(os.path.abspath(__file__))

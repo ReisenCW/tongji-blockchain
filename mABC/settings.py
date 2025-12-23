@@ -1,14 +1,19 @@
 import os
 
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
-DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+FLASH_API = os.getenv("BIG_MODEL_API_KEY")
+FLASH_URL = "https://open.bigmodel.cn/api/paas/v4/"
+# DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
+# DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+DASHSCOPE_API_KEY = FLASH_API
+DASHSCOPE_BASE_URL = FLASH_URL
 
 OPENAI_MAX_RETRIES = 10
 OPENAI_RETRY_SLEEP = 30
 # OPENAI_MODEL = "gpt-3.5-turbo"
 # OPENAI_MODEL = "gpt-4"
-OPENAI_MODEL = "qwen-turbo"
+# OPENAI_MODEL = "qwen-turbo"
 # OPENAI_MODEL = "qwen-plus"
+OPENAI_MODEL = "glm-4.6v-flash"
 
 # AGENT_STATUS_START = "Start"
 # AGENT_STATUS_RE = "Reason"
@@ -31,4 +36,17 @@ OPENAI_MODEL = "qwen-turbo"
 # DEFAULT_MODEL = "gpt-3.5-turbo-0125"
 
 if __name__ == "__main__":
-    print(DASHSCOPE_API_KEY)
+    print("api_key: " ,DASHSCOPE_API_KEY)
+    from openai import OpenAI
+    client = OpenAI(
+        api_key=DASHSCOPE_API_KEY,
+        base_url=DASHSCOPE_BASE_URL,
+    )
+    question = "what is 1 + 1 ?"
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[
+            {"role": "user", "content": question}
+        ]
+    )
+    print(response)
