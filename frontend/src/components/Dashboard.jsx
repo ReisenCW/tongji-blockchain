@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { Row, Col, Card, List, Steps, Tag, Table, Space, Statistic, message, Avatar, Typography, Progress, Tooltip, Button, Divider } from 'antd'
+import { Row, Col, Card, List, Steps, Tag, Table, Space, Statistic, message, Avatar, Typography, Progress, Tooltip, Divider } from 'antd'
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
-import { UserOutlined, TrophyOutlined, BankOutlined, SafetyCertificateOutlined, CrownOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons'
+import { UserOutlined, TrophyOutlined, BankOutlined, SafetyCertificateOutlined, CrownOutlined } from '@ant-design/icons'
 import { blockchainAPI } from '../utils/api'
 
 const sopSteps = ['Init', 'Data_Collected', 'Root_Cause_Proposed', 'Consensus', 'Solution']
@@ -61,44 +61,28 @@ function Dashboard() {
     } catch {}
   }
 
-  const handleGenerateData = async () => {
+  const runAgentsOnce = async () => {
     try {
-      message.loading({ content: '生成数据中...', key: 'gen' })
-      const res = await blockchainAPI.generateTestData()
+      message.loading({ content: '正在读取指标与拓扑进行根因分析...', key: 'run' })
+      const res = await blockchainAPI.runAgents()
       if (res.success) {
-        message.success({ content: '新区块生成成功！交易与状态已更新', key: 'gen' })
-        loadAccounts()
-        loadSop()
-        loadVoting()
-        pollEvents()
-      }
-    } catch (e) {
-      message.error({ content: '数据生成失败', key: 'gen' })
-    }
-  }
-
-  const handleResetData = async () => {
-    try {
-      message.loading({ content: '重置数据中...', key: 'reset' })
-      const res = await blockchainAPI.resetData()
-      if (res.success) {
-        message.success({ content: '系统数据已重置', key: 'reset' })
-        loadAccounts()
-        loadSop()
-        loadVoting()
-        pollEvents()
+        message.success({ content: '七智能体分析完成，投票与状态已更新', key: 'run' })
+      } else {
+        message.error({ content: '分析未成功', key: 'run' })
       }
     } catch (e) {
       const errorMsg = e.response?.data?.detail || e.message || '未知错误'
-      message.error({ content: `重置失败: ${errorMsg}`, key: 'reset' })
-      console.error('Reset failed:', e)
+      message.error({ content: `分析失败: ${errorMsg}`, key: 'run' })
+    } finally {
+      loadAccounts()
+      loadSop()
+      loadVoting()
+      pollEvents()
     }
   }
 
   useEffect(() => {
-    loadSop()
-    loadAccounts()
-    loadVoting()
+    runAgentsOnce()
     const t1 = setInterval(loadSop, 5000)
     const t2 = setInterval(loadVoting, 5000)
     const t3 = setInterval(pollEvents, 2000)
@@ -376,27 +360,7 @@ function Dashboard() {
         <Card 
           title="经济看板" 
           bodyStyle={{ padding: 0 }}
-          extra={
-            <Space>
-              <Button 
-                type="link" 
-                size="small" 
-                danger
-                icon={<DeleteOutlined />} 
-                onClick={handleResetData}
-              >
-                重置
-              </Button>
-              <Button 
-                type="link" 
-                size="small" 
-                icon={<ThunderboltOutlined />} 
-                onClick={handleGenerateData}
-              >
-                生成数据
-              </Button>
-            </Space>
-          }
+          extra={null}
         >
           <Table
             columns={accountColumns}

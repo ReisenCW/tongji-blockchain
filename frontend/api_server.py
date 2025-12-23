@@ -251,285 +251,135 @@ async def get_pending_transactions():
 
 @app.post("/api/reset")
 async def reset_data():
-    try:
-        # Reset Blockchain
-        blockchain.chain = []
-        blockchain.pending_transactions = []
-        blockchain._create_genesis_block()
-        
-        # Reset World State
-        world_state.state = {}
-        try:
-            conn = world_state._get_db_connection()
-            conn.execute("DELETE FROM accounts")
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print(f"Error clearing DB: {e}")
-            
-        # Reset SOP Contract
-        ops_sop_contract.reset_for_testing()
-        
-        return {"success": True, "message": "System data reset successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(status_code=410, detail="接口已移除")
 
 @app.post("/api/generate-test-data")
 async def generate_test_data():
+    raise HTTPException(status_code=410, detail="接口已移除，请使用 /api/run-agents")
+
+@app.post("/api/run-agents")
+async def run_agents():
     try:
-        from ecdsa import SigningKey, SECP256k1
         from core.client import ChainClient
-        from core.types import generate_address
-        from core.blockchain import PublicKeyRegistry
-        
+        from agents.base.profile import DataDetective, DependencyExplorer, ProbabilityOracle, FaultMapper, SolutionEngineer, AlertReceiver, ProcessScheduler
+        import json
         import random
-        
+        import time
         client = ChainClient(blockchain)
-        
-        # 1. 获取现有账户或创建新账户
-        accounts = []
-        existing_accounts = list(world_state.state.values())
-        
-        # 简单的内存缓存，用于存储生成的私钥 (仅用于演示，重启丢失)
-        if not hasattr(app, "demo_private_keys"):
-            app.demo_private_keys = {}
-            
-        if len(existing_accounts) < 5:
-            # 如果账户不足5个，补充创建 (系统初始化或恢复)
-            for i in range(5 - len(existing_accounts)):
-                private_key = SigningKey.generate(curve=SECP256k1)
-                public_key = private_key.get_verifying_key()
-                address = generate_address(public_key.to_string())
-                
-                PublicKeyRegistry.register_public_key(
-                    address,
-                    public_key.to_string().hex()
-                )
-                
-                account = world_state.create_account(address)
-                account.balance = random.randint(10000, 80000)
-                account.reputation = random.randint(80, 100)
-                world_state.update_account(account)
-                
-                app.demo_private_keys[address] = private_key
-                accounts.append({'address': address, 'private_key': private_key})
-        
-        # [新增] 模拟真实场景：动态扩容
-        # 10% 的概率会有新 Agent 加入网络 (模拟节点上线/扩容)
-        elif random.random() < 0.1:
-            print("Simulating Network Expansion: New Agent Joining...")
-            private_key = SigningKey.generate(curve=SECP256k1)
-            public_key = private_key.get_verifying_key()
-            address = generate_address(public_key.to_string())
-            
-            PublicKeyRegistry.register_public_key(
-                address,
-                public_key.to_string().hex()
-            )
-            
-            account = world_state.create_account(address)
-            account.balance = random.randint(5000, 20000) # 新节点初始资金较少
-            account.reputation = 60 # 新节点初始信誉较低
-            world_state.update_account(account)
-            
-            app.demo_private_keys[address] = private_key
-            # 将新 Agent 也加入到当次可用的 accounts 列表中
-            accounts.append({'address': address, 'private_key': private_key})
-            
-            # 记录一个特殊的“节点加入”日志事件，让前端能看到
-            ops_sop_contract.submit_data_collection(
-                agent_id=address,
-                data_summary="新节点入网注册",
-                raw_data={"event": "node_join", "version": "v1.2.0", "status": "online"}
-            )
-        else:
-            # 如果已有账户，使用现有账户
-            # 注意：这里我们只能使用我们在内存中保存了私钥的账户
-            for acc in existing_accounts:
-                if acc.address in app.demo_private_keys:
-                    accounts.append({
-                        'address': acc.address, 
-                        'private_key': app.demo_private_keys[acc.address]
-                    })
-            
-            # 如果所有现有账户都没有私钥（比如重启服务后），则必须强制创建新账户
-            if not accounts:
-                print("Warning: Existing accounts found but private keys lost. Creating new accounts.")
-                for i in range(5):
-                    private_key = SigningKey.generate(curve=SECP256k1)
-                    public_key = private_key.get_verifying_key()
-                    address = generate_address(public_key.to_string())
-                    PublicKeyRegistry.register_public_key(address, public_key.to_string().hex())
-                    account = world_state.create_account(address)
-                    account.balance = random.randint(10000, 80000)
-                    account.reputation = random.randint(80, 100)
-                    world_state.update_account(account)
-                    app.demo_private_keys[address] = private_key
-                    accounts.append({'address': address, 'private_key': private_key})
-        
-        # 确保 accounts 不为空
-        if not accounts:
-             raise HTTPException(status_code=500, detail="No available accounts with private keys")
-
-        transactions_created = 0
-        
-        # 随机生成一些交易
-        if len(accounts) >= 2:
-            num_txs = random.randint(3, 8)
-            for _ in range(num_txs):
-                sender_idx = random.randint(0, len(accounts)-1)
-                receiver_idx = (sender_idx + random.randint(1, len(accounts)-1)) % len(accounts)
-                
-                tx = client.create_transaction(
-                    tx_type="transfer",
-                    sender=accounts[sender_idx]['address'],
-                    data={"to": accounts[receiver_idx]['address'], "amount": random.randint(100, 2000)},
-                    private_key=accounts[sender_idx]['private_key']
-                )
-                if client.send_transaction(tx):
-                    transactions_created += 1
-
-        # 随机Stake
-        for i in range(len(accounts)):
-            if random.random() > 0.3: # 70% 概率质押
-                tx = client.create_transaction(
-                    tx_type="stake",
-                    sender=accounts[i]['address'],
-                    data={"amount": random.randint(1000, 10000)},
-                    private_key=accounts[i]['private_key']
-                )
-                if client.send_transaction(tx):
-                    transactions_created += 1
-        
-        block1 = client.mine_block()
-        block1_info = None
-        if block1:
-            block1_info = {
-                "index": block1.header.index,
-                "transactions": len(block1.transactions)
+        if not hasattr(app, "dao_agents"):
+            app.dao_agents = {
+                "AlertReceiver": AlertReceiver(),
+                "ProcessScheduler": ProcessScheduler(),
+                "DataDetective": DataDetective(),
+                "DependencyExplorer": DependencyExplorer(),
+                "ProbabilityOracle": ProbabilityOracle(),
+                "FaultMapper": FaultMapper(),
+                "SolutionEngineer": SolutionEngineer(),
             }
-        
-        # 模拟SOP流程事件，填充日志流
-        ops_sop_contract.storage["current_state"] = "Init"
-        ops_sop_contract.storage["events"] = []
-        ops_sop_contract.storage["proposals"] = {}
-        
-        # 随机选择一个场景（故障或健康）
-        scenarios = [
-            {
-                "incident": "系统例行健康巡检 - 各项指标正常",
-                "raw": {"cpu": 15, "memory": 20, "latency": 45, "status": "healthy"},
-                "causes": ["系统运行状况良好，无需干预", "资源负载均衡，性能优异", "网络连接稳定"]
-            },
-            {
-                "incident": "检测到节点3 CPU使用率异常 (95%)",
-                "raw": {"cpu": 95, "memory": 80, "node_id": "node-3"},
-                "causes": ["共识算法死循环", "非法交易泛洪攻击", "加密计算模块过载"]
-            },
-            {
-                "incident": "节点1 内存占用持续攀升 (92%)",
-                "raw": {"cpu": 40, "memory": 92, "node_id": "node-1"},
-                "causes": ["交易池内存泄漏导致处理延迟", "区块缓存未及时释放", "状态树膨胀"]
-            },
-            {
-                "incident": "P2P 网络广播延迟超过阈值 (500ms)",
-                "raw": {"latency": 520, "packet_loss": 0.05, "node_id": "all"},
-                "causes": ["部分节点带宽被占用", "路由表更新异常", "DDoS攻击"]
-            },
-            {
-                "incident": "节点4 磁盘空间不足 (剩余 5%)",
-                "raw": {"disk_usage": 95, "inode_usage": 60, "node_id": "node-4"},
-                "causes": ["日志文件切割失败", "历史区块数据冗余", "本地数据库损坏"]
-            }
-        ]
-        
-        selected_scenario = random.choice(scenarios)
-        selected_cause = random.choice(selected_scenario["causes"])
-        
-        # 1. 数据采集事件
+        agents = list(app.dao_agents.values())
+        for ag in agents:
+            acc = world_state.get_account(ag.wallet_address) or world_state.create_account(ag.wallet_address)
+            if acc.balance < 20000:
+                acc.balance = 20000
+            if acc.reputation is None or acc.reputation < 60:
+                acc.reputation = 80
+            world_state.update_account(acc)
+        selected_endpoint = "food-buy"
+        selected_time = "2023-10-15 14:00:00"
+        data_stat_path = os.path.join(parent_dir, "mABC", "data", "metric", "endpoint_stats.json")
+        data_map_path = os.path.join(parent_dir, "mABC", "data", "topology", "endpoint_maps.json")
+        sample_stat_path = os.path.join(parent_dir, "mABC", "simple_sample", "endpoints_stat.json")
+        sample_map_path = os.path.join(parent_dir, "mABC", "simple_sample", "endpoints_maps.json")
+        stat_path = data_stat_path if (os.path.exists(data_stat_path) and os.path.exists(data_map_path)) else None
+        map_path = data_map_path if stat_path else None
+        if stat_path is None or map_path is None:
+            if os.path.exists(sample_stat_path) and os.path.exists(sample_map_path):
+                stat_path = sample_stat_path
+                map_path = sample_map_path
+            else:
+                raise HTTPException(status_code=500, detail="缺少 mABC/data 的指标或拓扑文件")
+        endpoint_stats = {}
+        endpoint_maps = {}
+        try:
+            with open(stat_path, "r", encoding="utf-8") as f:
+                endpoint_stats = json.load(f)
+        except Exception:
+            endpoint_stats = {}
+        try:
+            with open(map_path, "r", encoding="utf-8") as f:
+                endpoint_maps = json.load(f)
+        except Exception:
+            endpoint_maps = {}
+        metrics = (endpoint_stats.get(selected_endpoint, {}).get(selected_time, {})) or {
+            "calls": 95,
+            "success_rate": 90.0,
+            "error_rate": 10.0,
+            "average_duration": 300.0,
+            "timeout_rate": 5.0
+        }
+        downstreams = endpoint_maps.get(selected_endpoint, {}).get(selected_time, [])
+        ops_sop_contract.reset_for_testing()
         ops_sop_contract.submit_data_collection(
-            agent_id=accounts[0]['address'],
-            data_summary=selected_scenario["incident"],
-            raw_data=selected_scenario["raw"]
+            agent_id=agents[0].wallet_address,
+            data_summary=f"{selected_endpoint} 指标异常",
+            raw_data={"endpoint": selected_endpoint, "time": selected_time, "metrics": metrics, "downstreams": downstreams}
         )
-        
-        # 2. 根因分析提案事件 (随机选择一个Agent发起)
-        proposer_idx = random.randint(0, len(accounts)-1)
+        proposer = app.dao_agents["ProcessScheduler"]
+        proposal_content = f"{selected_endpoint} 出现异常，可能由下游 {','.join(downstreams) or '未知下游'} 引发；平均耗时 {metrics.get('average_duration', 0)}ms，错误率 {metrics.get('error_rate', 0)}%"
         res_proposal = ops_sop_contract.propose_root_cause(
-            agent_id=accounts[proposer_idx]['address'],
-            content=selected_cause
+            agent_id=proposer.wallet_address,
+            content=proposal_content
         )
-        # 手动同步到 Proposer 的账户状态中
-        proposer_acc = world_state.get_account(accounts[proposer_idx]['address'])
-        if proposer_acc:
-            proposal_id = res_proposal['proposal_id']
-            proposer_acc.root_cause_proposals[proposal_id] = {
-                "proposal_id": proposal_id,
-                "content": selected_cause,
-                "timestamp": 1234567890,
-                "votes": {"for": 0, "against": 0, "abstain": 0},
-                "status": "active"
-            }
-            world_state.update_account(proposer_acc)
-        
-        # 3. 模拟投票
-        current_proposal = ops_sop_contract.get_current_proposal()
-        if current_proposal:
-            proposal_id = current_proposal['proposal_id']
-            
-            votes_for_sum = 0
-            votes_against_sum = 0
-            votes_abstain_sum = 0
-            
-            # 其他 Agent 随机投票
-            for i in range(len(accounts)):
-                if i == proposer_idx:
-                    continue
-                    
-                # 80% 概率参与投票
-                if random.random() > 0.2:
-                    acc = world_state.get_account(accounts[i]['address'])
-                    vote_weight = max(1.0, acc.stake * (acc.reputation / 100.0))
-                    
-                    # 70% 概率投赞成票
-                    vote_option = "for" if random.random() > 0.3 else "against"
-                    
-                    acc.votes[proposal_id] = {
-                        "vote_option": vote_option,
-                        "weight": vote_weight,
-                        "timestamp": 1234567890
-                    }
-                    world_state.update_account(acc)
-                    
-                    if vote_option == "for":
-                        votes_for_sum += vote_weight
-                    else:
-                        votes_against_sum += vote_weight
-            
-            # 更新Proposal中的投票统计
-            proposer_acc = world_state.get_account(accounts[proposer_idx]['address'])
-            if proposal_id in proposer_acc.root_cause_proposals:
-                 proposer_acc.root_cause_proposals[proposal_id]["votes"] = {
-                     "for": votes_for_sum,
-                     "against": votes_against_sum,
-                     "abstain": votes_abstain_sum
-                 }
-                 world_state.update_account(proposer_acc)
-        
-        print(f"DEBUG: Generated test data. Current state: {ops_sop_contract.storage['current_state']}")
-        print(f"DEBUG: Events count: {len(ops_sop_contract.storage['events'])}")
-
+        proposal_id = res_proposal["proposal_id"]
+        # 同步提案到世界状态，供治理合约投票权重统计
+        proposer_acc = world_state.get_account(proposer.wallet_address) or world_state.create_account(proposer.wallet_address)
+        proposer_acc.root_cause_proposals[proposal_id] = {
+            "proposal_id": proposal_id,
+            "proposer": proposer.wallet_address,
+            "content": proposal_content,
+            "timestamp": int(time.time()),
+            "votes": {"for": 0, "against": 0, "abstain": 0}
+        }
+        world_state.update_account(proposer_acc)
+        transactions_created = 0
+        for ag in agents:
+            stake_amount = random.randint(1000, 5000)
+            tx_stake = client.create_transaction(
+                tx_type="stake",
+                sender=ag.wallet_address,
+                data={"amount": stake_amount},
+                private_key=ag.private_key
+            )
+            if client.send_and_mine(tx_stake):
+                transactions_created += 1
+        vote_options = []
+        base_condition = (metrics.get("error_rate", 0) >= 10.0) or (metrics.get("average_duration", 0) >= 250.0)
+        for ag in agents:
+            rnd = random.random()
+            if rnd < 0.1:
+                opt = "abstain"
+            else:
+                opt = "for" if base_condition else ("against" if rnd < 0.6 else "for")
+            vote_options.append(opt)
+            tx_vote = client.create_transaction(
+                tx_type="vote",
+                sender=ag.wallet_address,
+                data={"proposal_id": proposal_id, "vote_option": opt},
+                private_key=ag.private_key
+            )
+            if client.send_and_mine(tx_vote):
+                transactions_created += 1
+        voting_status = await get_voting_status()
         return {
             "success": True,
-            "message": "测试数据生成成功",
-            "accounts_created": len(accounts),
+            "message": "七智能体根因分析与链上投票完成",
+            "agents_involved": len(agents),
+            "proposal_id": proposal_id,
             "transactions_created": transactions_created,
-            "blocks_mined": [block1_info],
-            "current_block_height": len(blockchain.chain),
-            "pending_transactions": len(blockchain.pending_transactions)
+            "voting": voting_status
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成测试数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"运行七智能体失败: {str(e)}")
 
 @app.get("/api/state/sop")
 async def get_sop_state():

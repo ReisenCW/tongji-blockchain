@@ -99,24 +99,36 @@ npm run dev
 
 ## 📝 使用指南
 
-### 1. 数据生成与模拟机制 (Simulation)
+### 1. 自动根因分析 (Auto Analysis)
 
-运维控制台右上角的 **"生成数据"** 按钮是整个系统的核心驱动器。每次点击该按钮，后台将执行一次完整的区块链出块与运维模拟流程：
+页面加载后，系统会自动调用后端接口 `/api/run-agents`，由 **七个智能体**（AlertReceiver、ProcessScheduler、DataDetective、DependencyExplorer、ProbabilityOracle、FaultMapper、SolutionEngineer）联合读取 `mABC/data/metric/endpoint_stats.json` 与 `mABC/data/topology/endpoint_maps.json` 进行根因分析与链上投票。
 
-- **持续演练**: 系统默认**复用**现有的 5 个核心 Agent 进行交互（若不足则生成至5个）。这意味着你可以看到这些 Agent 的余额、信誉分随着时间的推移不断变化，模拟了真实的长期运行环境。
-- **动态扩容 (Dynamic Scaling)**: 为了模拟真实区块链网络的开放性，每次生成数据时有 **10% 的概率** 触发 **"新节点入网"** 事件。
-  - 新加入的 Agent (如 Agent 6, Agent 7...) 将自动注册到网络中。
-  - 它们具有较低的初始资金和信誉分，随后开始参与后续的交易与共识。
-- **随机运维场景**: 系统内置了多种运维场景（如“健康巡检”、“CPU 过载”、“磁盘空间不足”等）。每次生成数据会随机选择一个场景，驱动左侧的 **实时日志流** 和中间的 **SOP 状态机** 发生相应的变化。
-- **SOP 状态流转**: 随着数据的生成，运维 SOP 会在 `Data_Collected` (数据采集) -> `Root_Cause_Proposed` (根因分析) -> `Consensus` (共识投票) 等状态间自动流转。
+- **数据来源**: 仅使用 `mABC/data` 目录中的真实数据文件进行分析；若缺失会返回错误提示。
+- **合约协同**: SOP 合约驱动状态机与事件，治理合约执行投票与共识，Token 合约处理质押与转账。
+- **前端联动**: 成功后自动刷新 SOP 状态、投票统计与经济看板。
 
-### 2. 重置系统
+### 2. 操作方式
+- 无需手动点击“生成数据”或“重置系统”，页面加载即自动执行分析。
+- 若需要重新分析，请刷新页面。
 
-如果你希望重新开始演示，可以点击右上角的 **"重置系统"** 按钮。这将：
-- 清空所有区块链数据（区块、交易）。
-- 重置世界状态（删除所有 Agent 账户）。
-- 重置 SOP 状态机。
-- 再次点击“生成数据”时，将从初始的 5 个 Agent 重新开始。
+### 3. 工作原理
+- **合约协同**: 自动分析通过 `/api/run-agents` 触发七智能体执行，最终由区块链执行层分发到各合约：
+  - `ops_contract` 负责 SOP 状态机推进与事件发射（如 `DataCollected`、`RootCauseProposed`）。参考 `mABC/contracts/ops_contract.py:56`、`mABC/contracts/ops_contract.py:77`。
+  - `governance_contract` 负责投票与共识判定，计算权重并推进到共识阶段。参考 `mABC/contracts/governance_contract.py:13`。
+  - `token_contract` 负责 `transfer` 和 `stake` 等经济操作。参考 `mABC/contracts/token_contract.py:13`、`mABC/contracts/token_contract.py:40`。
+- **交易执行**: 所有动作由 `ChainClient` 创建交易并上链，执行由 `StateProcessor` 分发。参考 `mABC/core/client.py:182` 与 `mABC/core/state.py:157`。
+- **数据来源**: 仅读取 `mABC/data/metric/endpoint_stats.json` 与 `mABC/data/topology/endpoint_maps.json`；缺失将提示错误。
+- **前端联动**: 成功后刷新 `SOP`、`Voting`、`Economy` 三块数据面板。
+
+### 4. 如何更换数据集
+- 将真实数据文件放入：
+  - 指标：`mABC/data/metric/endpoint_stats.json`
+  - 拓扑：`mABC/data/topology/endpoint_maps.json`
+- 建议保持时间键格式为 `YYYY-MM-DD HH:MM:SS`，并包含 `calls`、`error_rate`、`average_duration` 等字段，便于概率推理。
+
+### 5. 常见问题
+- **分析失败**：请确认 `mABC/data/metric/endpoint_stats.json` 与 `mABC/data/topology/endpoint_maps.json` 文件存在且格式正确。
+- **端口占用**：若 `5173` 或 `8000` 已被占用，请修改启动脚本或更换端口后重试。
 
 ### 3.查看区块
 在"区块浏览器"标签页中，可以浏览所有区块，点击"查看详情"按钮查看区块的详细信息。
@@ -174,4 +186,3 @@ frontend/
 
 ### 4. 浏览器兼容性
 - 推荐使用最新版的 Chrome, Edge 或 Firefox 浏览器以获得最佳体验。
-

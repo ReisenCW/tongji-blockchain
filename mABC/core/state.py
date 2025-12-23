@@ -23,9 +23,7 @@ class WorldState:
     
     def _get_db_connection(self):
         """获取数据库连接"""
-        conn = sqlite3.connect(self.db_path, timeout=30.0)
-        conn.execute('PRAGMA foreign_keys = ON')
-        conn.execute('PRAGMA journal_mode=WAL')
+        conn = sqlite3.connect(self.db_path)
         return conn
     
     def _init_db(self):
@@ -87,19 +85,13 @@ class WorldState:
         except Exception as e:
             print(f"Failed to load state from database: {e}")
     
-    def _save_state(self, accounts: List[Account] = None):
-        """保存状态到数据库
-        Args:
-            accounts: 要保存的账户列表。如果为None，保存所有账户。
-        """
+    def _save_state(self):
+        """保存状态到数据库"""
         try:
             conn = self._get_db_connection()
             cursor = conn.cursor()
-            
-            target_accounts = accounts if accounts is not None else self.state.values()
 
-            # 插入或更新账户
-            for account in target_accounts:
+            for account in self.state.values():
                 proposals_json = json.dumps(account.root_cause_proposals)
                 votes_json = json.dumps(account.votes)
                 
@@ -111,7 +103,6 @@ class WorldState:
             
             conn.commit()
             conn.close()
-            # print("State saved to database")
         except Exception as e:
             print(f"Failed to save state to database: {e}")
     
@@ -122,15 +113,14 @@ class WorldState:
     def create_account(self, address: str) -> Account:
         """创建新账户"""
         if address not in self.state:
-            new_account = Account(address=address)
-            self.state[address] = new_account
-            self._save_state([new_account])
+            self.state[address] = Account(address=address)
+            self._save_state()
         return self.state[address]
     
     def update_account(self, account: Account):
         """更新账户信息"""
         self.state[account.address] = account
-        self._save_state([account])
+        self._save_state()
     
     def get_balance(self, address: str) -> int:
         """获取账户余额"""

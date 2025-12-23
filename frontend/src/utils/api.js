@@ -82,15 +82,11 @@ export const blockchainAPI = {
     return response.data
   },
 
-  generateTestData: async () => {
-    const response = await api.post('/generate-test-data')
+  runAgents: async () => {
+    const response = await api.post('/run-agents')
     return response.data
   },
-
-  resetData: async () => {
-    const response = await api.post('/reset')
-    return response.data
-  },
+ 
 }
 
 export default api
