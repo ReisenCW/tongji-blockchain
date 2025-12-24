@@ -112,6 +112,15 @@ function TransactionView({ refreshKey }) {
       render: (sender) => <code style={{ fontSize: '11px' }}>{sender}</code>,
     },
     {
+      title: '接收方',
+      key: 'receiver',
+      ellipsis: true,
+      render: (_, record) => {
+        const receiver = record.data?.target || '-'
+        return <code style={{ fontSize: '11px' }}>{receiver}</code>
+      },
+    },
+    {
       title: '区块',
       dataIndex: 'blockIndex',
       key: 'blockIndex',
@@ -172,6 +181,9 @@ function TransactionView({ refreshKey }) {
               </Descriptions.Item>
               <Descriptions.Item label="发送方">
                 <code>{transaction.sender}</code>
+              </Descriptions.Item>
+              <Descriptions.Item label="接收方">
+                <code>{transaction.receiver || transaction.to || transaction.data?.to || transaction.data?.target || '-'}</code>
               </Descriptions.Item>
               <Descriptions.Item label="Nonce">
                 {transaction.nonce}
