@@ -49,6 +49,7 @@ if __name__ == "__main__":
         if account is None:
             account = world_state.create_account(agent.wallet_address)
         account.balance = 1000000  # 每个Agent初始1000000 Token（足以支付投票gas和质押）
+        account.name = agent.role_name
         account.reputation = 100
         world_state.update_account(account)
         print(f"✅ {agent.role_name}: 余额={account.balance} Token")

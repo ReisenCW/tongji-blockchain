@@ -4,7 +4,7 @@ import { EyeOutlined, ArrowRightOutlined } from '@ant-design/icons'
 import { blockchainAPI } from '../utils/api'
 import dayjs from 'dayjs'
 
-function BlockChainView() {
+function BlockChainView({ refreshKey }) {
   const [blocks, setBlocks] = useState([])
   const [loading, setLoading] = useState(false)
   const [selectedBlock, setSelectedBlock] = useState(null)
@@ -17,6 +17,13 @@ function BlockChainView() {
   useEffect(() => {
     loadBlocks()
   }, [pagination.current, pagination.pageSize])
+
+  // reload when the explorer tab becomes active (refreshKey increments)
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadBlocks()
+    }
+  }, [refreshKey])
 
   const loadBlocks = async () => {
     setLoading(true)

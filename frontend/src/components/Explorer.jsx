@@ -14,6 +14,18 @@ function Explorer() {
   const [blockchainInfo, setBlockchainInfo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('blocks')
+  // counters used to trigger refresh in child components when tab becomes active
+  const [refreshCounters, setRefreshCounters] = useState({
+    blocks: 0,
+    transactions: 0,
+    audit: 0,
+    dashboard: 0,
+  })
+
+  const handleTabChange = (key) => {
+    setActiveTab(key)
+    setRefreshCounters(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }))
+  }
 
   useEffect(() => {
     loadBlockchainInfo()
@@ -77,18 +89,18 @@ function Explorer() {
 
       {/* 主内容区域 */}
       <Card>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} size="large">
+        <Tabs activeKey={activeTab} onChange={handleTabChange} size="large">
           <TabPane tab="区块浏览器" key="blocks">
-            <BlockChainView />
+            <BlockChainView refreshKey={refreshCounters.blocks} />
           </TabPane>
           <TabPane tab="交易追踪" key="transactions">
-            <TransactionView />
+            <TransactionView refreshKey={refreshCounters.transactions} />
           </TabPane>
           <TabPane tab="审计视图" key="audit">
-            <AuditView />
+            <AuditView refreshKey={refreshCounters.audit} />
           </TabPane>
           <TabPane tab="运维控制台" key="dashboard">
-            <Dashboard />
+            <Dashboard refreshKey={refreshCounters.dashboard} />
           </TabPane>
         </Tabs>
       </Card>

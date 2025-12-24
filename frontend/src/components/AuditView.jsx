@@ -1,13 +1,22 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, Form, InputNumber, Button, Descriptions, Tag, Alert, Space, message, Tree } from 'antd'
 import { CheckCircleOutlined, CloseCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import { blockchainAPI } from '../utils/api'
 
-function AuditView() {
+function AuditView({ refreshKey }) {
   const [form] = Form.useForm()
   const [proof, setProof] = useState(null)
   const [loading, setLoading] = useState(false)
   const [treeData, setTreeData] = useState([])
+
+  // 当切换到审计视图时，重置表单/结果，保证内容是最新状态
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      form.resetFields()
+      setProof(null)
+      setTreeData([])
+    }
+  }, [refreshKey])
 
   const handleVerify = async (values) => {
     setLoading(true)

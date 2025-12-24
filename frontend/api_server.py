@@ -392,15 +392,17 @@ async def reset_data():
                 "FaultMapper": FaultMapper(),
                 "SolutionEngineer": SolutionEngineer(),
             }
-        
         agent_addresses = set()
         for ag in app.dao_agents.values():
             agent_addresses.add(ag.wallet_address)
             acc = world_state.get_account(ag.wallet_address) or world_state.create_account(ag.wallet_address)
+            acc.name = ag.role_name
             acc.balance = 20000
             acc.reputation = 80
             acc.stake = 0
             world_state.update_account(acc)
+            print("name: " + str(ag.role_name) + ", address: " + str(ag.wallet_address) + ", balance: " + str(acc.balance))
+            
             
         # 5. 更新区块链的Agent地址名单，防止误判金库
         blockchain.agent_addresses = agent_addresses
@@ -614,6 +616,7 @@ async def get_agents_state(limit: Optional[int] = None):
                 agent_accounts.append({
                     "address": account.address,
                     "balance": account.balance,
+                    "name": account.name,
                     "stake": account.stake,
                     "reputation": account.reputation
                 })

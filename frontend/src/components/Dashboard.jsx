@@ -7,7 +7,7 @@ import { blockchainAPI } from '../utils/api'
 const sopSteps = ['Init', 'Data_Collected', 'Root_Cause_Proposed', 'Consensus', 'Solution']
 const COLORS = ['#2ecc71', '#e74c3c', '#f1c40f']
 
-function Dashboard() {
+function Dashboard({ refreshKey }) {
   const [events, setEvents] = useState([])
   const [sopState, setSopState] = useState('Init')
   const [proposal, setProposal] = useState(null)
@@ -16,6 +16,17 @@ function Dashboard() {
   const [treasury, setTreasury] = useState([])
   const [voting, setVoting] = useState(null)
   const [economy, setEconomy] = useState(null)
+
+  // 当切换到运维控制台 Tab 时触发一次刷新
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadSop()
+      loadAccounts()
+      loadVoting()
+      pollEvents()
+      loadEconomy()
+    }
+  }, [refreshKey])
 
   const loadSop = async () => {
     try {
@@ -169,24 +180,28 @@ function Dashboard() {
     },
     {
       title: 'Agent',
+      dataIndex: 'name',
+      key: 'name',
+      width: 120,
+      render: (text) => (
+        <Typography.Text strong style={{ fontSize: 12, maxWidth: 120 }} ellipsis={{ tooltip: text }}>
+          {text}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: '钱包地址',
       dataIndex: 'address',
       key: 'address',
+      width: 100,
       render: (text) => (
-        <Space>
-          <Avatar 
-            size="small" 
-            style={{ backgroundColor: `#${text.slice(2, 8)}`, verticalAlign: 'middle' }}
-          >
-            {text[0].toUpperCase()}
-          </Avatar>
-          <Typography.Text 
-            copyable={{ text }} 
-            ellipsis={{ tooltip: text }} 
-            style={{ width: 80, fontSize: 12 }}
-          >
-            {text.slice(0, 6)}...{text.slice(-4)}
-          </Typography.Text>
-        </Space>
+        <Typography.Text
+          copyable={{ text }}
+          ellipsis={{ tooltip: text }}
+          style={{ width: 100, fontSize: 12, textAlign: 'left', display: 'inline-block' }}
+        >
+          {text.slice(0, 6)}...{text.slice(-4)}
+        </Typography.Text>
       ),
     },
     {
@@ -205,18 +220,9 @@ function Dashboard() {
             </span>
           </Space>
           <Tooltip title={`信誉分: ${record.reputation}`}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: '#8c8c8c' }}>信誉</span>
-              <Progress 
-                percent={record.reputation} 
-                size={[100, 4]} 
-                showInfo={false}
-                strokeColor={{
-                  '0%': '#ff4d4f',
-                  '100%': '#52c41a',
-                }}
-              />
-              <span style={{ fontSize: 11, color: '#8c8c8c' }}>{`${record.reputation}/100`}</span>
+              <Typography.Text style={{ fontSize: 11, color: '#8c8c8c' }}>{`${record.reputation}/100`}</Typography.Text>
             </div>
           </Tooltip>
         </div>
@@ -397,7 +403,7 @@ function Dashboard() {
                         {voting.statistics.consensus_reached ? '已达成共识' : '博弈进行中'}
                       </Tag>
                       <div style={{ fontSize: 11, color: '#bfbfbf', marginTop: 4 }}>
-                        通过阈值: >50% 全网权重
+                        通过阈值: &gt; 50% 全网权重
                       </div>
                     </div>
                   </Col>
@@ -515,7 +521,7 @@ function Dashboard() {
                         {(item.stake || 0).toLocaleString()}
                       </span>
                       <span title="信誉">
-                        <Progress percent={item.reputation || 0} size={[100, 4]} />
+                        <Typography.Text style={{ fontSize: 12, color: '#8c8c8c' }}>{`${item.reputation || 0}/100`}</Typography.Text>
                       </span>
                     </Space>
                   </Space>

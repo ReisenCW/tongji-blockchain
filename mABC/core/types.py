@@ -49,6 +49,7 @@ class Block(BaseModel):
 class Account(BaseModel):
     """账户模型"""
     address: str
+    name: str = ''
     balance: int = 0
     stake: int = 0          # 质押, 质押量越高，投票对提案结果的影响力越大
     reputation: int = 100   # 信誉分

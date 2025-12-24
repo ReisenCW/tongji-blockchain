@@ -6,7 +6,7 @@ import dayjs from 'dayjs'
 
 const { TabPane } = Tabs
 
-function TransactionView() {
+function TransactionView({ refreshKey }) {
   const [searchHash, setSearchHash] = useState('')
   const [transaction, setTransaction] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -20,6 +20,14 @@ function TransactionView() {
     const interval = setInterval(loadPendingTransactions, 3000)
     return () => clearInterval(interval)
   }, [])
+
+  // 当选中 "交易追踪" Tab 时触发刷新
+  useEffect(() => {
+    if (refreshKey !== undefined) {
+      loadPendingTransactions()
+      loadAllTransactions()
+    }
+  }, [refreshKey])
 
   const loadPendingTransactions = async () => {
     try {
