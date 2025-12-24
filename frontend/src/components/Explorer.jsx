@@ -18,7 +18,7 @@ function Explorer() {
   const [refreshCounters, setRefreshCounters] = useState({
     blocks: 0,
     transactions: 0,
-    audit: 0,
+    // audit: 0,
     dashboard: 0,
   })
 
@@ -96,9 +96,9 @@ function Explorer() {
           <TabPane tab="交易追踪" key="transactions">
             <TransactionView refreshKey={refreshCounters.transactions} />
           </TabPane>
-          <TabPane tab="审计视图" key="audit">
+          {/* <TabPane tab="审计视图" key="audit">
             <AuditView refreshKey={refreshCounters.audit} />
-          </TabPane>
+          </TabPane> */}
           <TabPane tab="运维控制台" key="dashboard">
             <Dashboard refreshKey={refreshCounters.dashboard} />
           </TabPane>
