@@ -1,0 +1,26 @@
+flowchart TD
+  Alert[告警接收]
+  PS[ProcessScheduler]
+  DD[DataDetective]
+  DE[DependencyExplorer]
+  PO[ProbabilityOracle]
+  MW[DAOExecutor]
+  BC[Blockchain Core]
+  C[Contracts]
+  SE[SolutionEngineer]
+
+  Alert --> PS
+  PS --> DD
+  DD --> MW
+  PS --> DE
+  DE --> MW
+  DD --> PO
+  PO --> MW
+  MW --> BC
+  BC --> C
+  C --> BC
+  BC --> MW
+  MW --> SE
+
+  classDef agents fill:#f9f,stroke:#333,stroke-width:1px;
+  class Alert,PS,DD,DE,PO,SE agents

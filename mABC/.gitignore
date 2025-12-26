@@ -34,5 +34,5 @@ data/handle_info
 data/span_info
 resource
 output.log
-answer.json
+answer*.json
 state.db

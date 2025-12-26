@@ -53,13 +53,13 @@ class AgentWorkflow():
         # 生成地址
         self.wallet_address = generate_address(self.public_key.to_string())
         
-        # 注册公钥（供区块链验证签名使用）
+        # 注册公钥(供区块链验证签名使用)
         PublicKeyRegistry.register_public_key(
             self.wallet_address, 
             self.public_key.to_string().hex()
         )
         
-        # 初始化投票权重（用于共识计算）
+        # 初始化投票权重(用于共识计算)
         self.weight = 1.0
         self.contribution_index = 1.0
         self.expertise_index = 1.0
