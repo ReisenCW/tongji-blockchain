@@ -16,6 +16,7 @@ from .types import Transaction, Block, BlockHeader, get_merkle_root
 
 class TransactionType:
     """交易类型常量"""
+
     PROPOSE_ROOT_CAUSE = "propose_root_cause"
     VOTE = "vote"
     TRANSFER = "transfer"
@@ -45,12 +46,9 @@ class Blockchain:
             index=0,
             timestamp=int(time.time()),
             previous_hash="0" * 64,
-            merkle_root=get_merkle_root([])
+            merkle_root=get_merkle_root([]),
         )
-        genesis_block = Block(
-            header=genesis_header,
-            transactions=[]
-        )
+        genesis_block = Block(header=genesis_header, transactions=[])
         genesis_block.hash = self._calculate_block_hash(genesis_block)
         self.chain.append(genesis_block)
         print("Genesis block created")
@@ -59,11 +57,11 @@ class Blockchain:
         """计算区块哈希"""
         # 使用成员1提供的方法计算区块哈希
         from .types import calculate_hash
-        block_dict = block.model_dump(exclude={'hash'})
-        block_json = json.dumps(
-            block_dict, sort_keys=True, separators=(',', ':'))
+
+        block_dict = block.model_dump(exclude={"hash"})
+        block_json = json.dumps(block_dict, sort_keys=True, separators=(",", ":"))
         return calculate_hash(block_json)
-    
+
     def _get_treasury_account(self):
         """选择系统金库账户（当前实现：选择余额最高的非Agent账户）"""
         if not world_state.state:
@@ -74,8 +72,8 @@ class Blockchain:
             if self._treasury_address not in self.agent_addresses:
                 return world_state.get_account(self._treasury_address)
             else:
-                self._treasury_address = None # 清除无效缓存
-        
+                self._treasury_address = None  # 清除无效缓存
+
         # 选择余额最高的非Agent账户作为金库
         max_acc = None
         for acc in world_state.state.values():
@@ -83,7 +81,7 @@ class Blockchain:
                 continue
             if max_acc is None or (acc.balance or 0) > (max_acc.balance or 0):
                 max_acc = acc
-        
+
         if max_acc:
             self._treasury_address = max_acc.address
         return max_acc
@@ -115,7 +113,8 @@ class Blockchain:
             required_gas = tx.gas_price * tx.gas_limit
             if account and account.balance < required_gas:
                 print(
-                    f"Insufficient balance. Required {required_gas}, available {account.balance}")
+                    f"Insufficient balance. Required {required_gas}, available {account.balance}"
+                )
                 return False
 
         # 交易验证通过，加入待打包交易池
@@ -142,14 +141,11 @@ class Blockchain:
             index=previous_block.header.index + 1,
             timestamp=int(time.time()),
             previous_hash=previous_block.hash or "",
-            merkle_root=get_merkle_root(transactions_to_mine)
+            merkle_root=get_merkle_root(transactions_to_mine),
         )
-        
+
         # 创建新区块
-        new_block = Block(
-            header=new_header,
-            transactions=transactions_to_mine
-        )
+        new_block = Block(header=new_header, transactions=transactions_to_mine)
 
         # 调用StateProcessor执行交易
         successful_transactions = []
@@ -173,7 +169,6 @@ class Blockchain:
                     world_state.update_account(treasury)
             else:
                 print(f"Insufficient balance for gas fee: {tx.sender}")
-                
 
             # 调用StateProcessor应用交易
             if state_processor.apply_transaction(tx):
@@ -194,7 +189,7 @@ class Blockchain:
 
         # 更新区块的交易列表为成功执行的交易
         new_block.transactions = successful_transactions
-        
+
         # 更新Merkle根
         new_block.header.merkle_root = get_merkle_root(successful_transactions)
 
@@ -204,7 +199,8 @@ class Blockchain:
         # 将合法区块追加到链上
         self.chain.append(new_block)
         print(
-            f"New block mined: #{new_block.header.index} with {len(successful_transactions)} transactions")
+            f"New block mined: #{new_block.header.index} with {len(successful_transactions)} transactions"
+        )
 
         return new_block
 
@@ -216,23 +212,25 @@ class Blockchain:
         try:
             # 使用成员1提供的公钥查找接口
             from .blockchain import PublicKeyRegistry
+
             public_key_hex = PublicKeyRegistry.get_public_key(tx.sender)
-            
+
             # 如果公钥查找失败，则签名验证失败
             if not public_key_hex:
                 print(f"Public key not found for address: {tx.sender}")
                 return False
-            
+
             # 使用公钥进行签名验证
             vk = VerifyingKey.from_string(
-                bytes.fromhex(public_key_hex), curve=SECP256k1)
+                bytes.fromhex(public_key_hex), curve=SECP256k1
+            )
 
             # 计算交易哈希（不包含签名）
-            tx_dict = tx.model_dump(exclude={'signature'})
-            tx_json = json.dumps(tx_dict, sort_keys=True,
-                                 separators=(',', ':'))
+            tx_dict = tx.model_dump(exclude={"signature"})
+            tx_json = json.dumps(tx_dict, sort_keys=True, separators=(",", ":"))
             # 使用成员1提供的哈希函数
             from .types import calculate_hash
+
             tx_hash = calculate_hash(tx_json)
 
             # 生产环境使用ECDSA签名验证
@@ -241,7 +239,7 @@ class Blockchain:
                 result = vk.verify_digest(
                     bytes.fromhex(tx.signature),
                     bytes.fromhex(tx_hash),
-                    sigdecode=sigdecode_der
+                    sigdecode=sigdecode_der,
                 )
                 return result
             except Exception as verify_error:

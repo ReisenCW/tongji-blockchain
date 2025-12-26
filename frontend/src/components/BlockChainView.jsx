@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Table, Card, Descriptions, Tag, Button, Space, message, Spin, Empty } from 'antd'
-import { EyeOutlined, ArrowRightOutlined } from '@ant-design/icons'
+import { Table, Card, Descriptions, Tag, Button, Space, message, Spin, Empty, Tooltip } from 'antd'
+import { EyeOutlined, ArrowRightOutlined, CopyOutlined } from '@ant-design/icons'
 import { blockchainAPI } from '../utils/api'
 import dayjs from 'dayjs'
 
@@ -25,16 +25,28 @@ function BlockChainView({ refreshKey }) {
     }
   }, [refreshKey])
 
+  const copyToClipboard = (text) => {
+    if (!text) return
+    navigator.clipboard.writeText(text).then(
+      () => {
+        message.success('已复制到剪贴板')
+      },
+      () => {
+        message.error('复制失败')
+      }
+    )
+  }
+
   const loadBlocks = async () => {
     setLoading(true)
     try {
       const offset = (pagination.current - 1) * pagination.pageSize
       const limit = pagination.pageSize
       const data = await blockchainAPI.getBlocks(limit, offset)
-      
+
       // 获取总数
       const info = await blockchainAPI.getBlockchainInfo()
-      
+
       setBlocks(data.reverse()) // 最新的在前
       setPagination(prev => ({
         ...prev,
@@ -235,9 +247,41 @@ function BlockChainView({ refreshKey }) {
                       title: '交易哈希',
                       dataIndex: 'tx_hash',
                       key: 'tx_hash',
-                      ellipsis: true,
-                      render: (hash) => <code style={{ fontSize: '11px' }}>{hash}</code>,
+                      ellipsis: {
+                        showTitle: false,
+                      },
+                      render: (hash) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Tooltip title={hash}>
+                            <code style={{
+                              fontSize: '11px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: '200px', // 限制宽度以防止撑开
+                              display: 'block'
+                            }}>
+                              {hash}
+                            </code>
+                          </Tooltip>
+                          {hash && (
+                            <Tooltip title="复制交易哈希以进行搜索">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<CopyOutlined style={{ fontSize: '12px' }} />}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  copyToClipboard(hash)
+                                }}
+                                style={{ padding: '0 4px', height: 'auto', flexShrink: 0 }}
+                              />
+                            </Tooltip>
+                          )}
+                        </div>
+                      ),
                     },
+
                     {
                       title: '类型',
                       dataIndex: 'tx_type',
@@ -249,7 +293,17 @@ function BlockChainView({ refreshKey }) {
                       dataIndex: 'sender',
                       key: 'sender',
                       ellipsis: true,
-                      render: (sender) => <code style={{ fontSize: '11px' }}>{sender}</code>,
+                      render: (sender) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <code style={{ fontSize: '11px' }}>{sender}</code>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<CopyOutlined style={{ fontSize: '12px' }} />}
+                            onClick={() => copyToClipboard(sender)}
+                          />
+                        </div>
+                      )
                     },
                     {
                       title: 'Gas',

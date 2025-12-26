@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Descriptions, Tag, Input, Button, Space, message, Empty, Tabs } from 'antd'
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Card, Table, Descriptions, Tag, Input, Button, Space, message, Empty, Tabs, Tooltip } from 'antd'
+import { SearchOutlined, ReloadOutlined, CopyOutlined } from '@ant-design/icons'
 import { blockchainAPI } from '../utils/api'
 import dayjs from 'dayjs'
 
@@ -12,6 +12,19 @@ function TransactionView({ refreshKey }) {
   const [loading, setLoading] = useState(false)
   const [pendingTxs, setPendingTxs] = useState([])
   const [allTransactions, setAllTransactions] = useState([])
+
+  // 复制到剪贴板
+  const copyToClipboard = (text) => {
+    if (!text) return
+    navigator.clipboard.writeText(text).then(
+      () => {
+        message.success('已复制到剪贴板')
+      },
+      () => {
+        message.error('复制失败')
+      }
+    )
+  }
 
   useEffect(() => {
     loadPendingTransactions()
@@ -81,11 +94,37 @@ function TransactionView({ refreshKey }) {
       title: '交易哈希',
       dataIndex: 'tx_hash',
       key: 'tx_hash',
-      ellipsis: true,
+      ellipsis: {
+        showTitle: false,
+      },
       render: (hash) => (
-        <code style={{ fontSize: '11px' }}>
-          {hash ? `${hash.substring(0, 16)}...${hash.substring(hash.length - 8)}` : 'N/A'}
-        </code>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Tooltip title={hash}>
+            <code style={{
+              fontSize: '11px',
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {hash || 'N/A'}
+            </code>
+          </Tooltip>
+          {hash && (
+            <Tooltip title="复制交易哈希">
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined style={{ fontSize: '12px' }} />}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  copyToClipboard(hash)
+                }}
+                style={{ padding: '0 4px', height: 'auto', flexShrink: 0 }}
+              />
+            </Tooltip>
+          )}
+        </div>
       ),
     },
     {
@@ -108,16 +147,72 @@ function TransactionView({ refreshKey }) {
       title: '发送方',
       dataIndex: 'sender',
       key: 'sender',
-      ellipsis: true,
-      render: (sender) => <code style={{ fontSize: '11px' }}>{sender}</code>,
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (sender) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Tooltip title={sender}>
+            <code style={{
+              fontSize: '11px',
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>{sender}</code>
+          </Tooltip>
+          {sender && sender !== '-' && (
+            <Tooltip title="复制地址">
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined style={{ fontSize: '12px' }} />}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  copyToClipboard(sender)
+                }}
+                style={{ padding: '0 4px', height: 'auto', flexShrink: 0 }}
+              />
+            </Tooltip>
+          )}
+        </div>
+      ),
     },
     {
       title: '接收方',
       key: 'receiver',
-      ellipsis: true,
+      ellipsis: {
+        showTitle: false,
+      },
       render: (_, record) => {
         const receiver = record.data?.target || '-'
-        return <code style={{ fontSize: '11px' }}>{receiver}</code>
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Tooltip title={receiver}>
+              <code style={{
+                fontSize: '11px',
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>{receiver}</code>
+            </Tooltip>
+            {receiver && receiver !== '-' && (
+              <Tooltip title="复制地址">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CopyOutlined style={{ fontSize: '12px' }} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    copyToClipboard(receiver)
+                  }}
+                  style={{ padding: '0 4px', height: 'auto', flexShrink: 0 }}
+                />
+              </Tooltip>
+            )}
+          </div>
+        )
       },
     },
     {
@@ -174,16 +269,48 @@ function TransactionView({ refreshKey }) {
           >
             <Descriptions bordered column={2}>
               <Descriptions.Item label="交易哈希">
-                <code>{transaction.tx_hash}</code>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code>{transaction.tx_hash}</code>
+                  <Tooltip title="复制交易哈希">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => copyToClipboard(transaction.tx_hash)}
+                    />
+                  </Tooltip>
+                </div>
               </Descriptions.Item>
               <Descriptions.Item label="交易类型">
                 <Tag>{transaction.tx_type}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="发送方">
-                <code>{transaction.sender}</code>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code>{transaction.sender}</code>
+                  <Tooltip title="复制地址">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => copyToClipboard(transaction.sender)}
+                    />
+                  </Tooltip>
+                </div>
               </Descriptions.Item>
               <Descriptions.Item label="接收方">
-                <code>{transaction.receiver || transaction.to || transaction.data?.to || transaction.data?.target || '-'}</code>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code>{transaction.receiver || transaction.to || transaction.data?.to || transaction.data?.target || '-'}</code>
+                  {(transaction.receiver || transaction.to || transaction.data?.to || transaction.data?.target) && (
+                    <Tooltip title="复制地址">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<CopyOutlined />}
+                        onClick={() => copyToClipboard(transaction.receiver || transaction.to || transaction.data?.to || transaction.data?.target)}
+                      />
+                    </Tooltip>
+                  )}
+                </div>
               </Descriptions.Item>
               <Descriptions.Item label="Nonce">
                 {transaction.nonce}
@@ -206,9 +333,19 @@ function TransactionView({ refreshKey }) {
                     #{transaction.block_index}
                   </Descriptions.Item>
                   <Descriptions.Item label="区块哈希">
-                    <code style={{ fontSize: '11px' }}>
-                      {transaction.block_hash}
-                    </code>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <code style={{ fontSize: '11px' }}>
+                        {transaction.block_hash}
+                      </code>
+                      <Tooltip title="复制区块哈希">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CopyOutlined />}
+                          onClick={() => copyToClipboard(transaction.block_hash)}
+                        />
+                      </Tooltip>
+                    </div>
                   </Descriptions.Item>
                 </>
               )}
@@ -218,13 +355,23 @@ function TransactionView({ refreshKey }) {
             <div style={{ marginTop: 24 }}>
               <h3>Payload数据</h3>
               <Card>
-                <pre style={{ 
-                  background: '#f5f5f5', 
-                  padding: 16, 
+                <pre style={{
+                  background: '#f5f5f5',
+                  padding: 16,
                   borderRadius: 4,
                   overflow: 'auto',
-                  maxHeight: 400
+                  maxHeight: 400,
+                  position: 'relative'
                 }}>
+                  <Button
+                    type="text"
+                    icon={<CopyOutlined />}
+                    onClick={() => copyToClipboard(JSON.stringify(transaction.data, null, 2))}
+                    style={{ position: 'absolute', right: 8, top: 8 }}
+                    size="small"
+                  >
+                    复制JSON
+                  </Button>
                   {JSON.stringify(transaction.data, null, 2)}
                 </pre>
               </Card>
@@ -267,7 +414,7 @@ function TransactionView({ refreshKey }) {
                   pageSize: 20,
                   showTotal: (total) => `共 ${total} 笔交易`,
                 }}
-                scroll={{ x: 1000 }}
+                scroll={{ x: 1200 }}
               />
             </TabPane>
             <TabPane tab={`待处理交易 (${pendingTxs.length})`} key="pending">
@@ -281,7 +428,7 @@ function TransactionView({ refreshKey }) {
                   columns={txColumns}
                   rowKey="tx_hash"
                   pagination={false}
-                  scroll={{ x: 1000 }}
+                  scroll={{ x: 1200 }}
                 />
               ) : (
                 <Empty description="暂无待处理交易" />
@@ -295,4 +442,3 @@ function TransactionView({ refreshKey }) {
 }
 
 export default TransactionView
-
