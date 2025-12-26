@@ -28,8 +28,8 @@ Final Answer: [对原始问题的完整、详细的最终答案]
 
 **关键要求：**
 1. 每次回复必须以 "Thought:" 开头
-2. 如果需要收集更多信息，使用模式1（提供 Action Tool Name 和 Action Tool Input）
-3. 如果已有足够信息回答问题，使用模式2（提供 Final Answer）
+2. 如果需要收集更多信息，使用模式1(提供 Action Tool Name 和 Action Tool Input)
+3. 如果已有足够信息回答问题，使用模式2(提供 Final Answer)
 4. **绝对不要**只输出 Thought 而不输出 Action 或 Final Answer
 5. Final Answer 必须是完整的答案，不能是简单的一句话
 
@@ -37,7 +37,7 @@ Final Answer: [对原始问题的完整、详细的最终答案]
 - **字符串参数必须用引号包裹**，例如：endpoint="train-buy"，minute="2023-10-15 14:00:00"
 - 数字参数不需要引号，例如：count=5, threshold=0.5
 - 如果参数包含连字符(-)、空格或特殊字符，必须用引号包裹
-- 错误示例：endpoint=train-buy （会被解析为 train 减去 buy）
+- 错误示例：endpoint=train-buy (会被解析为 train 减去 buy)
 - 正确示例：endpoint="train-buy"
 
 [模式1和模式2可以重复多次，但最终必须以模式2结束]"""

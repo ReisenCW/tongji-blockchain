@@ -178,7 +178,7 @@ class ReActTotRun(BaseRun):
             return history
         
         prefix = f"Question: {question}"
-        # 如果历史记录以问题开头（通常都是），则保留问题，压缩中间部分
+        # 如果历史记录以问题开头(通常都是)，则保留问题，压缩中间部分
         if history.startswith(prefix):
             content_to_summarize = history[len(prefix):]
             
@@ -278,7 +278,7 @@ class ReActTotRun(BaseRun):
                 print("❌ 最终答案未通过投票，结束本轮分析")
                 return status, step_record
         else:
-            # 中间步骤（Action/Thought）直接通过，不触发投票
+            # 中间步骤(Action/Thought)直接通过，不触发投票
             return status, step_record
 
     # 进行一步运行, 状态变化如下:
@@ -304,10 +304,10 @@ class ReActTotRun(BaseRun):
         
         while status == REACT_STATUS_RE:
             reason_loop_count += 1
-            print(f"🔍 DEBUG: Reason循环次数 {reason_loop_count}/{max_reason_loops}")
+            # print(f"🔍 DEBUG: Reason循环次数 {reason_loop_count}/{max_reason_loops}")
             
             if reason_loop_count > max_reason_loops:
-                print(f"❌ ERROR: Reason循环超过最大次数({max_reason_loops})，强制退出")
+                # print(f"❌ ERROR: Reason循环超过最大次数({max_reason_loops})，强制退出")
                 final_answer = "Unable to determine root cause after multiple reasoning steps."
                 step_record += f"\nFinal Answer: {final_answer}"
                 return REACT_STATUS_FINISH, step_record
@@ -320,13 +320,13 @@ class ReActTotRun(BaseRun):
                 step_record += f"\nFinal Answer: {final_answer}"
                 return REACT_STATUS_FINISH, step_record
             
-            # 当在Reason状态时，将上一步的输出（如有）和历史记录累积作为新的输入
+            # 当在Reason状态时，将上一步的输出(如有)和历史记录累积作为新的输入
             step_input = history
             result = self.reason(agent, step_input)
             status = result["status"]
             thought = result["thought"]
             step_record += f"\nThought: {thought}"  # 将这一步的输出Thought加入历史记录
-            print(f"🔍 DEBUG: Reason完成，返回状态: {status}")
+            # print(f"🔍 DEBUG: Reason完成，返回状态: {status}")
             
         if status == REACT_STATUS_ACT:
             # 如果我们处于ACT状态，则执行相应的操作，并更新状态
@@ -335,6 +335,7 @@ class ReActTotRun(BaseRun):
             step_record += f"\nAction Tool Name: {action_tool_name}"
             step_record += f"\nAction Tool Input: {action_tool_input}"
             action = f"{action_tool_name}({action_tool_input})"
+            print(f"\n🔍 action: {action}")
             
             # 检查是否重复执行相同的动作
             if action == previous_action:
@@ -371,7 +372,7 @@ class ReActTotRun(BaseRun):
 
     # 进行推理, 返回状态和结果
     def reason(self, agent: AgentWorkflow, question):
-        print(f"🔍 DEBUG: 进入 reason 方法")
+        # print(f"🔍 DEBUG: 进入 reason 方法")
         tools, tool_names = get_agent_tool_list_prompt(agent.tool_path)
         # 先单独格式化 tool_prompt，避免与 role_desc 中的占位符冲突
         formatted_tool_prompt = agent.tool_prompt.format(tools=tools, tool_names=tool_names)
@@ -381,11 +382,11 @@ class ReActTotRun(BaseRun):
             {"role": "system", "content": system_content},
             {"role": "user", "content": question},
         ]
-        print(f"🔍 DEBUG: 准备调用 llm_chat")
+        # print(f"🔍 DEBUG: 准备调用 llm_chat")
         answer = self.qa(messages, stop_words=STOP_WORDS_REACT)
-        print(f"🔍 DEBUG: llm_chat 返回，开始解析")
+        # print(f"🔍 DEBUG: llm_chat 返回，开始解析")
         result = self.parse(answer)
-        print(f"🔍 DEBUG: parse 完成，结果状态: {result['status']}")
+        # print(f"🔍 DEBUG: parse 完成，结果状态: {result['status']}")
         return result
 
     # 解析推理结果, 返回状态和内容
@@ -399,8 +400,8 @@ class ReActTotRun(BaseRun):
             "action_tool_input": None,
         }
         
-        print(f"🔍 DEBUG: 开始解析回复，长度: {len(answer)}")
-        print(f"🔍 DEBUG: 回复内容前100字: {answer[:100]}")
+        # print(f"🔍 DEBUG: 开始解析回复，长度: {len(answer)}")
+        # print(f"🔍 DEBUG: 回复内容前100字: {answer[:100]}")
         
         if "Thought:" in answer:
             # 提取思考内容
@@ -411,14 +412,14 @@ class ReActTotRun(BaseRun):
                 .strip()
             )
             # 提取Thought部分，假设它出现在Action或Final Answer之前
-            print(f"🔍 DEBUG: 检测到 Thought")
+            # print(f"🔍 DEBUG: 检测到 Thought")
         
         # 检查是否含有最终答案
         if "Final Answer:" in answer:
             # 提取最终答案并返回完成状态
             result["final_answer"] = answer.split("Final Answer:")[1].strip()
             result["status"] = REACT_STATUS_FINISH
-            print(f"🔍 DEBUG: 检测到 Final Answer，返回完成状态")
+            # print(f"🔍 DEBUG: 检测到 Final Answer，返回完成状态")
             return result
         
         # 检查是否需要执行某个操作
@@ -430,17 +431,17 @@ class ReActTotRun(BaseRun):
                 .strip()
             )
             action_tool_input = (
-                answer.split("Action Tool Input:")[1].split("Observation:")[0].strip()
+                answer.split("Action Tool Input:")[1].split("\n")[0].strip()
             )
             result["action_tool_name"] = action_tool_name
             result["action_tool_input"] = action_tool_input
             result["status"] = REACT_STATUS_ACT
-            print(f"🔍 DEBUG: 检测到 Action Tool: {action_tool_name}")
+            # print(f"🔍 DEBUG: 检测到 Action Tool: {action_tool_name}")
             return result
         
-        # 如果没有最终答案也没有行动指令，返回思考状态（重新思考）
+        # 如果没有最终答案也没有行动指令，返回思考状态(重新思考)
         else:
-            print(f"🔍 DEBUG: 未检测到 Final Answer 或 Action Tool，继续思考")
+            # print(f"🔍 DEBUG: 未检测到 Final Answer 或 Action Tool，继续思考")
             return result
 
     # 执行行动, 返回新的状态和输出结果

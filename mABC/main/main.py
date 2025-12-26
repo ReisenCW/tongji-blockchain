@@ -184,7 +184,14 @@ Format: Root Cause Endpoint: XXX, Root Cause Reason: XXX
     finally:
         sys.stdout = original_stdout
         log_file.close()
+        
+    for result in results:
+        try:
+            result["solution_engineer_answer"] = json.loads(result["solution_engineer_answer"])
+        except (json.JSONDecodeError, TypeError):
+            pass  # 如果不是JSON，保持原样
     
     with open("answer.json", "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(results, f, indent=4, ensure_ascii=False)
+        
     print("completed")
