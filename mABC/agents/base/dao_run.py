@@ -30,9 +30,9 @@ class DAOExecutor(BaseRun):
         初始化DAO执行器
         
         Args:
-            blockchain: Blockchain实例（来自成员2）
-            alpha: 支持率阈值（默认0.5，即50%）
-            beta: 参与率阈值（默认0.5，即50%）
+            blockchain: Blockchain实例(来自成员2)
+            alpha: 支持率阈值(默认0.5，即50%)
+            beta: 参与率阈值(默认0.5，即50%)
         """
         super().__init__()
         self.blockchain = blockchain
@@ -44,19 +44,19 @@ class DAOExecutor(BaseRun):
     def run(self, agents: List[AgentWorkflow], poll_role: str, 
             poll_problem: str, poll_content: str, proposal_id: str = None) -> bool:
         """
-        执行DAO投票流程（保持与ThreeHotCotRun相同的接口）
+        执行DAO投票流程(保持与ThreeHotCotRun相同的接口)
         
         Args:
             agents: 参与投票的Agent列表
             poll_role: 提案发起者的角色名
             poll_problem: 投票的问题
             poll_content: 问题的详细内容
-            proposal_id: 外部指定的提案ID（可选）
+            proposal_id: 外部指定的提案ID(可选)
         
         Returns:
             bool: 提案是否通过
         """
-        # 如果禁用了投票（alpha和beta都为-1），则直接通过
+        # 如果禁用了投票(alpha和beta都为-1)，则直接通过
         if self.alpha == -1 and self.beta == -1:
             return True
         
@@ -116,7 +116,7 @@ class DAOExecutor(BaseRun):
                 print(f"理由: {poll_reason}\n")
                 break
         
-        # 如果没人发起投票，仍然进入投票流程（自动发起）
+        # 如果没人发起投票，仍然进入投票流程(自动发起)
         if poll_initiator is None:
             poll_initiator = poll_role
             poll_reason = "Auto-started voting due to no challenge"
@@ -165,7 +165,7 @@ class DAOExecutor(BaseRun):
             )
             
             if success:
-                # 质押后刷新最新权重（信誉+质押）
+                # 质押后刷新最新权重(信誉+质押)
                 try:
                     acc_now = self.chain_client.get_account(agent.wallet_address)
                     if acc_now:
@@ -174,7 +174,7 @@ class DAOExecutor(BaseRun):
                         agent.weight = 1.0 + reputation_bonus + stake_bonus
                 except Exception:
                     pass
-                # 计算投票权重（基于Agent的weight属性）
+                # 计算投票权重(基于Agent的weight属性)
                 weight = agent.weight if hasattr(agent, 'weight') else 1.0
                 vote_weights[vote_option] += weight
                 total_weight += weight
@@ -239,7 +239,7 @@ class DAOExecutor(BaseRun):
             self._send_reward(treasury, proposer.wallet_address, 800, 5, f"Proposal Passed: {proposal_id}")
             print(f"  - 提案人 {proposer.role_name}: +800 Token, +5 Reputation")
             
-        # 3. 奖励支持者（仅对投票为 'For' 的地址发放）
+        # 3. 奖励支持者(仅对投票为 'For' 的地址发放)
         supporters = [rec for rec in (vote_records or []) if rec.get("option") == "For"]
         for rec in supporters:
             self._send_reward(treasury, rec["address"], 300, 1, f"Voting Support: {proposal_id}")
@@ -255,7 +255,7 @@ class DAOExecutor(BaseRun):
             self._send_reward(treasury, rec["address"], rebate_amount, 0, f"Gas Rebate (70%): {proposal_id}")
             print(f"  - 支持者 {rec['role']}: 返还Gas {rebate_amount}")
         
-        # 5. 成果赏金基础额发放（给提案人）
+        # 5. 成果赏金基础额发放(给提案人)
         bounty_base = 1000
         if proposer:
             self._send_reward(treasury, proposer.wallet_address, bounty_base, 0, f"Bounty: {proposal_id}")
@@ -387,7 +387,7 @@ class DAOExecutor(BaseRun):
         Returns:
             签名的十六进制字符串
         """
-        # 1. 计算交易哈希（排除signature字段）
+        # 1. 计算交易哈希(排除signature字段)
         tx_dict = tx.model_dump(exclude={'signature'})
         tx_json = json.dumps(tx_dict, sort_keys=True, separators=(',', ':'))
         tx_hash = hashlib.sha256(tx_json.encode()).digest()
@@ -414,7 +414,7 @@ class DAOExecutor(BaseRun):
             print(f"❌ 交易提交失败: {tx.sender[:8]}... - {tx.tx_type}")
             return False
         
-        # 2. 立即触发出块（模拟环境下）
+        # 2. 立即触发出块(模拟环境下)
         block = self.blockchain.mine_block()
         if block is None:
             print("❌ 出块失败")
@@ -566,4 +566,4 @@ class DAOExecutor(BaseRun):
         elif confidence > 0.5:
             return int(balance * 0.1)  # 中等信心质押10%
         else:
-            return 0  # 低信心不质押（弃权）
+            return 0  # 低信心不质押(弃权)

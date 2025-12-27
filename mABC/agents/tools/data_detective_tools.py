@@ -10,7 +10,7 @@ from handle.metric_collect import MetricExplorer
 
 # error_rate: 浮点类型，表示错误请求的百分比。计算公式为 (错误请求数 / 总调用数) * 100。
 
-# average_duration: 浮点类型，表示平均响应时间（以毫秒为单位）。计算公式为 总响应时间 / 总调用数。
+# average_duration: 浮点类型，表示平均响应时间(以毫秒为单位)。计算公式为 总响应时间 / 总调用数。
 
 explorer = MetricExplorer()
 
