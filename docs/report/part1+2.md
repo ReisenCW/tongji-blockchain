@@ -22,9 +22,9 @@
 - **Appendices**：详细案例研究、数据集细节、Prompt模板、Agent角色描述、投票Prompt等。
 
 ### 研究目的
-随着云原生技术的快速发展，**微服务架构（Micro-Services Architecture, MSA）**已成为主流，但其系统复杂性指数级增长，导致**故障传播（fault propagation）**和**循环依赖（circular dependencies）**问题突出。传统根因分析方法难以应对多样化故障场景，且依赖人工干预效率低下。
+随着云原生技术的快速发展，微服务架构(Micro-Services Architecture, MSA)已成为主流，但其系统复杂性指数级增长，导致故障传播(fault propagation)和循环依赖(circular dependencies)问题突出。传统根因分析方法难以应对多样化故障场景，且依赖人工干预效率低下。
 
-论文目的在于提出一个**自动化、智能化的根因分析与修复框架**，针对AIOps（AI for IT Operations）领域，利用大语言模型（LLM）的强大知识表示能力，结合多智能体协作解决复杂故障诊断难题。同时，针对LLM的**幻觉（hallucination）**问题和MSA中的无限循环风险，提供可靠的治理机制，最终实现从警报触发到根因定位再到解决方案生成的端到端自动化。
+论文目的在于提出一个**自动化、智能化的根因分析与修复框架**，针对AIOps（AI for IT Operations）领域，利用大语言模型（LLM）的强大知识表示能力，结合多智能体协作解决复杂故障诊断难题。同时，针对LLM的幻觉（hallucination）问题和MSA中的无限循环风险，提供可靠的治理机制，最终实现从警报触发到根因定位再到解决方案生成的端到端自动化。
 
 主要贡献：
 - 首次将多智能体与区块链治理原则融合应用于微服务RCA。
@@ -60,7 +60,7 @@ mABC框架的核心创新在于三个相互协同的组件：
    - 原理借鉴区块链治理的透明、平等和不可篡改，确保决策可靠。
 
 
-![Agent Workflow双模式示意](../images/Agent Workflow双模式.png)
+![Agent Workflow双模式示意](../images/AgentWorkflow双模式.png)
 
 （上图为论文Figure 3：Agent Workflow双模式示意，左侧ReAct循环，右侧Direct Answer。）
 
@@ -117,7 +117,7 @@ mABC框架的核心创新在于三个相互协同的组件：
 
 **模块组成与功能**：设计独立的 `OpsSOPContract`，维护全局运维标准操作程序（SOP）状态机（Init → Data_Collected → Root_Cause_Proposed → Consensus → Solution），提供专用交易接口，并实现严格的前置状态校验与结构化事件发射。同时预留 `advance_to_consensus_phase` 接口供后续治理合约调用。
 
-**实现效果**：Agent 只能在合约允许的状态下执行对应操作，违规交易直接 revert；所有阶段切换自动发射事件（如 `DataCollected`、`RootCauseProposed`、`ConsensusReached`）。
+**实现效果**：Agent 只能在合约允许的状态下执行对应操作，违规交易直接 revert；所有阶段切换自动发射事件, 如 `DataCollected`、`RootCauseProposed`、`ConsensusReached`
 
 **改进意义**：原论文依赖 Prompt 软约束，Agent 易跳步或陷入无限循环。本项目通过链上状态机硬编码，实现“流程即合约”的强制编排，从机制层面大幅抑制 LLM 幻觉导致的流程混乱，确保运维诊断的完整性与合规性。
 
