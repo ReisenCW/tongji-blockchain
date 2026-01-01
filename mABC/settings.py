@@ -5,9 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 FLASH_API = os.getenv("BIG_MODEL_API_KEY")
-if not FLASH_API:
-    # 如果环境变量未设置，尝试使用默认值（仅用于测试，建议使用环境变量）
-    FLASH_API = "ec0880d68fcd45ae90f6c1436b2eed8b.fUCwsGAGSaN2QUOS"
 FLASH_URL = "https://open.bigmodel.cn/api/paas/v4/"
 # DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 # DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
